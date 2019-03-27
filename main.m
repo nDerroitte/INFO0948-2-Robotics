@@ -24,5 +24,7 @@ function main()
     % Start simulation
     vrep.simxStartSimulation(id, vrep.simx_opmode_oneshot_wait);
     
+    
     % End simulation
+    vrep.simxStopSimulation(id, vrep.simx_opmode_oneshot_wait);
     vrep.simxFinish(-1);
