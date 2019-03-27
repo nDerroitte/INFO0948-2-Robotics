@@ -1,0 +1,89 @@
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts
+END
+pnmfile.h
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/pnmfile.h
+END
+convolve.h
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/convolve.h
+END
+imconv.h
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/imconv.h
+END
+misc.h
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/misc.h
+END
+segment.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/segment.cpp
+END
+segment-graph.h
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/segment-graph.h
+END
+imutil.h
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/imutil.h
+END
+README
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/README
+END
+disjoint-set.h
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/disjoint-set.h
+END
+COPYING
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/COPYING
+END
+image.h
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/image.h
+END
+segment-image.h
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/segment-image.h
+END
+filter.h
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/filter.h
+END
+Makefile
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/toolbox/!svn/ver/333/vision/branches/book/contrib/graphcuts/Makefile
+END
