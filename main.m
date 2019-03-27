@@ -2,7 +2,8 @@ function main()
     clc
 
     %% -------------------------- Init the project ---------------------------
-    run('startup_robot.m')
+    addpath('library/youbot', 'library/matlab');
+    run('startup_robot.m');
 
     %
     disp('Program started');
