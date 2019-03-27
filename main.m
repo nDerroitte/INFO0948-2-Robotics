@@ -1,6 +1,7 @@
 function main()
     %% -------------------------- Init the project ---------------------------
-    run('library/matlab/startup_robot.m')
+    addpath('library/youbot', 'library/matlab');
+    run('startup_robot.m');
 
     %
     disp('Program started');
