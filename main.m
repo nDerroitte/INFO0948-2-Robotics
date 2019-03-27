@@ -1,11 +1,13 @@
 function main()
     %% -------------------------- Init the project ---------------------------
-    run('startup_robot.m')
+    run('library/matlab/startup_robot.m')
 
     %
     disp('Program started');
     % Launching vrep 
+    cd library/youbot
     vrep = remApi('remoteApi');
+    cd ../..
     % End the last simulation if not already done
     vrep.simxFinish(-1);
     % Creating the id for vrep
@@ -24,5 +26,5 @@ function main()
     % Start simulation
     vrep.simxStartSimulation(id, vrep.simx_opmode_oneshot_wait);
     
-    
+    % End simulation
     vrep.simxFinish(-1);
