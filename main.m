@@ -5,9 +5,7 @@ function main()
     %
     disp('Program started');
     % Launching vrep 
-    cd library/youbot
     vrep = remApi('remoteApi');
-    cd ../..
     % End the last simulation if not already done
     vrep.simxFinish(-1);
     % Creating the id for vrep
