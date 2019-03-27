@@ -1,10 +1,12 @@
 function main()
+    clc
+
     %% -------------------------- Init the project ---------------------------
     run('library/matlab/startup_robot.m')
 
     %
     disp('Program started');
-    % Launching vrep 
+    % Launching vrep
     vrep = remApi('remoteApi');
     % End the last simulation if not already done
     vrep.simxFinish(-1);
@@ -23,6 +25,6 @@ function main()
 
     % Start simulation
     vrep.simxStartSimulation(id, vrep.simx_opmode_oneshot_wait);
-    
+
     % End simulation
     vrep.simxFinish(-1);
