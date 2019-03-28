@@ -84,7 +84,7 @@ function exploration(vrep, id, h)
             traj = {next_pos1, next_pos2, next_pos3, next_pos4, next_pos5, next_pos6, next_pos7, next_pos8, next_pos9, next_pos10, next_pos11, next_pos12, next_pos13, next_pos14, next_pos15, next_pos16, next_pos17, next_pos18, next_pos19};
             next_pos = traj{1};
             traj(1) = [];
-            rotation_next_pos = getRotationNextPos(absolute_robot_position, next_pos);
+            rotation_next_pos = getRotationNextPos(absolute_robot_position, next_pos, robot_angle);
             fsm = 'rotateToNextPos';
         elseif strcmp(fsm, 'rotateToNextPos')
             % /!\ Velocity backward!!!
@@ -103,7 +103,7 @@ function exploration(vrep, id, h)
                 if size(traj) >= 1
                     next_pos = traj{1};
                     traj(1) = [];
-                    rotation_next_pos = getRotationNextPos(absolute_robot_position, next_pos);
+                    rotation_next_pos = getRotationNextPos(absolute_robot_position, next_pos, robot_angle);
                     fsm = 'rotateToNextPos';
                 else
                     break;
@@ -244,7 +244,7 @@ function simplifyMap(index, absolute_robot_position)
     map(map == 4) = 3;
 end
 %% Move function
-function [rotation] = getRotationNextPos(robot_pos, next_pos)
+function [rotation] = getRotationNextPos(robot_pos, next_pos, robot_angle)
     if next_pos(1) == robot_pos(1) + 1
         if next_pos(2) == robot_pos(2) + 1
             rotation = -pi/4;
@@ -256,6 +256,8 @@ function [rotation] = getRotationNextPos(robot_pos, next_pos)
     elseif next_pos(1) == robot_pos(2)
         if next_pos(2) == robot_pos(2) + 1
             rotation = 0;
+        elseif next_pos(2) == robot_pos(2)
+            rotation = robot_angle;
         elseif next_pos(2) == robot_pos(2) - 1
             rotation = pi;
         end
