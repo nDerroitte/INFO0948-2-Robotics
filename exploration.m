@@ -18,7 +18,7 @@ function exploration(vrep, id, h)
     rotate_angle = pi;
     rotation_next_pos = 0;
     i = 0;
-    fsm = 'rotate';
+    fsm = 'createTarget';
     %% Start the exploration.
     while true
         tic
@@ -96,7 +96,8 @@ function exploration(vrep, id, h)
             end
             h = youbot_drive(vrep, h, 0, 0, rotateRightVel);
         elseif strcmp(fsm, 'moveToNextPos')
-            forwBackVel = - (robot_position(1) + 0.1);
+            real_next_pos = round_parameter * bsxfun(@plus, next_pos, map_origin - robot_position);
+            forwBackVel = - norm(real_next_pos - robot_position);
 
             if (robot_position(1) + 0.1 < .001)
                 forwBackVel = 0;
