@@ -101,9 +101,10 @@ function exploration(vrep, id, h)
             if (robot_position(1) + 0.1 < .001)
                 forwBackVel = 0;
                 if size(traj) >= 1
+                    last_pos = next_pos;
                     next_pos = traj{1};
                     traj(1) = [];
-                    rotation_next_pos = getRotationNextPos(absolute_robot_position, next_pos, robot_angle);
+                    rotation_next_pos = getRotationNextPos(last_pos, next_pos, robot_angle);
                     fsm = 'rotateToNextPos';
                 else
                     break;
