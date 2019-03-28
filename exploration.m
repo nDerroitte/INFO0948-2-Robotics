@@ -83,8 +83,8 @@ function exploration(vrep, id, h)
             next_pos17 = [absolute_robot_position(1)+17, absolute_robot_position(2)];
             next_pos18 = [absolute_robot_position(1)+18, absolute_robot_position(2)];
             next_pos19 = [absolute_robot_position(1)+19, absolute_robot_position(2)];
-            traj = {next_pos1, next_pos2, next_pos3, next_pos4, next_pos5, next_pos6, next_pos7, next_pos8, next_pos9, next_pos10, next_pos11, next_pos12, next_pos13, next_pos14, next_pos15, next_pos16, next_pos17, next_pos18, next_pos19};
-            %traj =
+            %traj = {next_pos1, next_pos2, next_pos3, next_pos4, next_pos5, next_pos6, next_pos7, next_pos8, next_pos9, next_pos10, next_pos11, next_pos12, next_pos13, next_pos14, next_pos15, next_pos16, next_pos17, next_pos18, next_pos19};
+            traj = astar(map,absolute_robot_position);
             next_pos = traj{1};
             traj(1) = [];
             rotation_next_pos = getRotationNextPos(absolute_robot_position, next_pos, robot_angle);

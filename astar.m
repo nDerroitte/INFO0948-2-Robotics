@@ -1,4 +1,8 @@
-function main()
+function [path] = main(map,init_pos)
+  path = compute_path(map,init_pos);
+end
+
+function test()
   clc
 
   map = [2, 2, 2, 2, 2, 2, 2, 2, 2;
@@ -14,14 +18,10 @@ function main()
   disp(map)
 
   init_pos = [9,4];
-  [path] = compute_path(map,init_pos);
+  path = compute_path(map,init_pos);
 
   map_with_path = write_path(map,path);
   disp(map_with_path)
-end
-
-function astar(map,init_pos)
-
 end
 
 function [man_dist] = manhattan_distance(pos1, pos2)
