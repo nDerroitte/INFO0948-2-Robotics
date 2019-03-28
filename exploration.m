@@ -15,7 +15,6 @@ function exploration(vrep, id, h)
     map_size = size(map);
     map_origin = init_robot_position([1;2])'; 
 
-    target_pos = [-1, -1];
     rotate_angle = pi;
     rotation_next_pos = 0;
     i = 0;
@@ -23,9 +22,6 @@ function exploration(vrep, id, h)
     %% Start the exploration. 
     while true
         tic  
-        [X, Y] = meshgrid(-5:.25:5, -5.5:.25:2.5); % Values selected for the area the robot will explore for this demo. 
-        X = reshape(X, 1, []); % Make a vector of the matrix X. 
-        Y = reshape(Y, 1, []);
         if vrep.simxGetConnectionId(id) == -1
             error('Lost connection to remote API.');
         end
@@ -60,7 +56,6 @@ function exploration(vrep, id, h)
             % When the rotation is done (with a sufficiently high precision), move on to the next state. 
             if abs(angdiff(rotate_angle, robot_angle)) < .1 / 180 * pi && abs(angdiff(prevOrientation, robot_angle)) < .01 / 180 * pi
                 fsm = 'createTarget';
-                break;
             end
             prevOrientation = robot_angle;
             h = youbot_drive(vrep, h, 0, 0, rotateRightVel);
@@ -89,6 +84,7 @@ function exploration(vrep, id, h)
                 break;
                 % next_pos in list. Si pas de next pos move to createTarget
             end
+            h = youbot_drive(vrep, h, forwBackVel, 0, 0);
         end
         
         % Make sure that we do not go faster than the physics simulation (each iteration must take roughly 50 ms). 
@@ -98,6 +94,7 @@ function exploration(vrep, id, h)
             pause(min(timeleft, .01));
         end
     end
+    absolute_robot_position = round((1/round_parameter) * (robot_position - map_origin));
     disp('Simplifying the map');
     simplifyMap(2, absolute_robot_position);
     simplifyMap(3, absolute_robot_position);
@@ -110,7 +107,6 @@ function updateMap(h, pts, contacts, robot_position, robot_angle)
     % rotate the points and translate them to be on the map
     rotation_matrix = [cos(robot_angle), -sin(robot_angle);  sin(robot_angle), cos(robot_angle)];
     
-    absolute_pts = bsxfun(@plus,  pts, robot_position);
     absolute_index_pts = round((1/round_parameter) * bsxfun(@plus, rotation_matrix * pts, robot_position - map_origin));
     
     hokuyoPositions = [h.hokuyo1Pos(1), h.hokuyo1Pos(2); h.hokuyo2Pos(1), h.hokuyo2Pos(2)];
