@@ -99,7 +99,7 @@ function exploration(vrep, id, h)
             real_next_pos = round_parameter * bsxfun(@plus, next_pos, map_origin - robot_position);
             forwBackVel = - norm(real_next_pos - robot_position);
 
-            if (robot_position(1) + 0.1 < .001)
+            if (norm(real_next_pos - robot_position) < .001)
                 forwBackVel = 0;
                 if size(traj) >= 1
                     last_pos = next_pos;
