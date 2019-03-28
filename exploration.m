@@ -62,9 +62,28 @@ function exploration(vrep, id, h)
 
         elseif strcmp(fsm, 'createTarget')
             absolute_robot_position = round((1/round_parameter) * (robot_position - map_origin));
-            next_pos = [absolute_robot_position(1)+1, absolute_robot_position(2)];
-            %target_pos = astarMedhi
-            % next_pos
+            next_pos1 = [absolute_robot_position(1)+1, absolute_robot_position(2)];
+            next_pos2 = [absolute_robot_position(1)+2, absolute_robot_position(2)];
+            next_pos3 = [absolute_robot_position(1)+3, absolute_robot_position(2)];
+            next_pos4 = [absolute_robot_position(1)+4, absolute_robot_position(2)];
+            next_pos5 = [absolute_robot_position(1)+5, absolute_robot_position(2)];
+            next_pos6 = [absolute_robot_position(1)+6, absolute_robot_position(2)];
+            next_pos7 = [absolute_robot_position(1)+7, absolute_robot_position(2)];
+            next_pos8 = [absolute_robot_position(1)+8, absolute_robot_position(2)];
+            next_pos9 = [absolute_robot_position(1)+9, absolute_robot_position(2)];
+            next_pos10 = [absolute_robot_position(1)+10, absolute_robot_position(2)];
+            next_pos11 = [absolute_robot_position(1)+11, absolute_robot_position(2)];
+            next_pos12 = [absolute_robot_position(1)+12, absolute_robot_position(2)];
+            next_pos13 = [absolute_robot_position(1)+13, absolute_robot_position(2)];
+            next_pos14 = [absolute_robot_position(1)+14, absolute_robot_position(2)];
+            next_pos15 = [absolute_robot_position(1)+15, absolute_robot_position(2)];
+            next_pos16 = [absolute_robot_position(1)+16, absolute_robot_position(2)];
+            next_pos17 = [absolute_robot_position(1)+17, absolute_robot_position(2)];
+            next_pos18 = [absolute_robot_position(1)+18, absolute_robot_position(2)];
+            next_pos19 = [absolute_robot_position(1)+19, absolute_robot_position(2)];
+            traj = {next_pos1, next_pos2, next_pos3, next_pos4, next_pos5, next_pos6, next_pos7, next_pos8, next_pos9, next_pos10, next_pos11, next_pos12, next_pos13, next_pos14, next_pos15, next_pos16, next_pos17, next_pos18, next_pos19};
+            next_pos = traj{1};
+            traj(1) = [];
             rotation_next_pos = getRotationNextPos(absolute_robot_position, next_pos);
             fsm = 'rotateToNextPos';
         elseif strcmp(fsm, 'rotateToNextPos')
@@ -81,8 +100,15 @@ function exploration(vrep, id, h)
 
             if (robot_position(1) + 0.1 < .001)
                 forwBackVel = 0;
-                break;
-                % next_pos in list. Si pas de next pos move to createTarget
+                if size(traj) >= 1
+                    next_pos = traj{1};
+                    traj(1) = [];
+                    rotation_next_pos = getRotationNextPos(absolute_robot_position, next_pos);
+                    fsm = 'rotateToNextPos';
+                else
+                    break;
+                end
+                
             end
             h = youbot_drive(vrep, h, forwBackVel, 0, 0);
         end
