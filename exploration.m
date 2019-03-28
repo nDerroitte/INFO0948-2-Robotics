@@ -64,6 +64,10 @@ function exploration(vrep, id, h)
 
         elseif strcmp(fsm, 'createTarget')
             absolute_robot_position = round((1/round_parameter) * (robot_position - map_origin));
+            disp('Simplifying the map');
+            tmp_map = simplifyMap(2, absolute_robot_position);
+            tmp_map = simplifyMap(3, absolute_robot_position);
+            disp('Done');
             next_pos1 = [absolute_robot_position(1)+1, absolute_robot_position(2)];
             next_pos2 = [absolute_robot_position(1)+2, absolute_robot_position(2)];
             next_pos3 = [absolute_robot_position(1)+3, absolute_robot_position(2)];
@@ -131,12 +135,6 @@ function exploration(vrep, id, h)
             pause(min(timeleft, .01));
         end
     end
-    absolute_robot_position = round((1/round_parameter) * (robot_position - map_origin));
-    disp('Simplifying the map');
-    simplifyMap(2, absolute_robot_position);
-    simplifyMap(3, absolute_robot_position);
-    disp('Done');
-    displayMap();
 end
 %% Update map
 function updateMap(h, pts, contacts, robot_position, robot_angle)
@@ -219,7 +217,7 @@ function displayMap()
     drawnow;
 end
 %% Simplify map
-function simplifyMap(index, absolute_robot_position)
+function [new_map] =  simplifyMap(index, absolute_robot_position)
     global map
     map(absolute_robot_position(1), absolute_robot_position(2)) = 5;
     for i = 1:size(map,1)
@@ -253,6 +251,7 @@ function simplifyMap(index, absolute_robot_position)
         end
     end
     map(map == 4) = 3;
+    new_map = map;
 end
 %% Move function
 function [rotation] = getRotationNextPos(robot_pos, next_pos, robot_angle)
