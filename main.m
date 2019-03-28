@@ -2,8 +2,8 @@ function main()
     clc
 
     %% -------------------------- Init the project ---------------------------
-    addpath(genpath('library/youbot/'))
-    addpath(genpath('library/matlab/'))
+    addpath(genpath('library/youbot/'));
+    addpath(genpath('library/matlab/'));
     run('startup_robot.m');
 
     %
@@ -50,6 +50,11 @@ function main()
 
     % Definition of the starting pose of the arm (the angle to impose at each joint to be in the rest position).
     startingJoints = [0, 30.91 * pi / 180, 52.42 * pi / 180, 72.68 * pi / 180, 0];
+
+    %% Preset values for the demo.
+    disp('Starting robot');
+
+
 
     % End simulation
     vrep.simxStopSimulation(id, vrep.simx_opmode_oneshot_wait);
