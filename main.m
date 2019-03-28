@@ -2,8 +2,8 @@ function main()
     clc
 
     %% -------------------------- Init the project ---------------------------
-    addpath(genpath('library/youbot/'));
-    addpath(genpath('library/matlab/'));
+    addpath(genpath('library/youbot/'))
+    addpath(genpath('library/matlab/'))
     run('startup_robot.m');
 
     %
@@ -31,14 +31,15 @@ function main()
     % Retrieve all handles, and stream arm and wheel joints, the robot's pose, the Hokuyo, and the arm tip pose.
     % The tip corresponds to the point between the two tongs of the gripper (for more details, see later or in the
     % file focused/youbot_arm.m).
+    % LES INFO DU ROBOT
     h = youbot_init(vrep, id);
     h = youbot_hokuyo_init(vrep, h);
     % Let a few cycles pass to make sure there's a value waiting for us next time we try to get a joint angle or
     % the robot pose with the simx_opmode_buffer option.
-    pause(.2);
+    %pause(.2);
 
     %% Youbot constants
-    % The time step the simulator is using (your code should run close to it).
+    % The time step
     timestep = .05;
 
     % Minimum and maximum angles for all joints. Only useful to implement custom IK.
@@ -48,14 +49,27 @@ function main()
                       -1.7802357673645, 1.7802357673645;
                       -1.5707963705063, 1.5707963705063 ];
 
-    % Definition of the starting pose of the arm (the angle to impose at each joint to be in the rest position).
-    startingJoints = [0, 30.91 * pi / 180, 52.42 * pi / 180, 72.68 * pi / 180, 0];
+    % Definition of the starting pose of the arm.
+    startingJoints = [0,0,0,0,0] ;%[0, 30.91 * pi / 180, 52.42 * pi / 180, 72.68 * pi / 180, 0];
+    
+    % Set the arm to its starting configuration. 
+    res = vrep.simxPauseCommunication(id, true); % We stop comunication to send all information at the same time
+    vrchk(vrep, res);
+    
+    for i = 1:5
+        res = vrep.simxSetJointTargetPosition(id, h.armJoints(i), startingJoints(i), vrep.simx_opmode_oneshot);
+        vrchk(vrep, res, true);
+    end
+    % Restart communication
+    res = vrep.simxPauseCommunication(id, false); 
+    vrchk(vrep, res);
+    pause(2);
+    
+    exploration(vrep, id, h)
 
-    %% Preset values for the demo.
-    disp('Starting robot');
-
-
-
+    
+    
     % End simulation
     vrep.simxStopSimulation(id, vrep.simx_opmode_oneshot_wait);
     vrep.simxFinish(-1);
+end
