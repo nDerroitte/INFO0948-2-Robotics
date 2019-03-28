@@ -16,11 +16,13 @@ function exploration(vrep, id, h)
     map_origin = init_robot_position([1;2])';
 
     rotate_angle = pi;
+    previous_dist = 0;
+    prevOrientation = 0;
     rotation_next_pos = 0;
     i = 0;
     fsm = 'createTarget';
     %% Start the exploration.
-    while true
+    while i<1000
         tic
         if vrep.simxGetConnectionId(id) == -1
             error('Lost connection to remote API.');
@@ -43,7 +45,7 @@ function exploration(vrep, id, h)
         [pts, contacts] = youbot_hokuyo(vrep, h, vrep.simx_opmode_buffer);
         pts = pts(1:2,:); % discard z
         updateMap(h, pts, contacts, robot_position, robot_angle);
-        displayMap();
+        %displayMap();
 
 
         i = i +1;
@@ -82,6 +84,7 @@ function exploration(vrep, id, h)
             next_pos18 = [absolute_robot_position(1)+18, absolute_robot_position(2)];
             next_pos19 = [absolute_robot_position(1)+19, absolute_robot_position(2)];
             traj = {next_pos1, next_pos2, next_pos3, next_pos4, next_pos5, next_pos6, next_pos7, next_pos8, next_pos9, next_pos10, next_pos11, next_pos12, next_pos13, next_pos14, next_pos15, next_pos16, next_pos17, next_pos18, next_pos19};
+            %traj =
             next_pos = traj{1};
             traj(1) = [];
             rotation_next_pos = getRotationNextPos(absolute_robot_position, next_pos, robot_angle);
@@ -93,24 +96,31 @@ function exploration(vrep, id, h)
             % When the rotation is done (with a sufficiently high precision), move on to the next state.
             if abs(angdiff(rotation_next_pos, robot_angle)) < .1 / 180 * pi
                 fsm = 'moveToNextPos';
+                pause(1)
             end
             h = youbot_drive(vrep, h, 0, 0, rotateRightVel);
         elseif strcmp(fsm, 'moveToNextPos')
-            real_next_pos = round_parameter * bsxfun(@plus, next_pos, map_origin - robot_position);
-            forwBackVel = - norm(real_next_pos - robot_position);
+            real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
+            a = [real_next_pos(1)-robot_position(1), real_next_pos(2)-robot_position(2)];
 
-            if (norm(real_next_pos - robot_position) < .001)
+            proj = a(1) * sin(robot_angle) + a(2) * cos(robot_angle);
+            dist_point = norm(a);
+            forwBackVel =  -(proj/abs(proj))*norm(a)*0.7;
+
+            if (dist_point < .1 && previous_dist <.01)
                 forwBackVel = 0;
                 if size(traj) >= 1
                     last_pos = next_pos;
                     next_pos = traj{1};
                     traj(1) = [];
+                    size(traj)
                     rotation_next_pos = getRotationNextPos(last_pos, next_pos, robot_angle);
                     fsm = 'rotateToNextPos';
                 else
                     break;
                 end
             end
+            previous_dist = dist_point;
             h = youbot_drive(vrep, h, forwBackVel, 0, 0);
         end
 

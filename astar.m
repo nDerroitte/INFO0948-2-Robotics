@@ -20,6 +20,10 @@ function main()
   disp(map_with_path)
 end
 
+function astar(map,init_pos)
+
+end
+
 function [man_dist] = manhattan_distance(pos1, pos2)
   man_dist = abs(pos1(1:end,1)-pos2(1:end,1))+abs(pos1(1:end,2)-pos2(1:end,2));
 end
