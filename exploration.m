@@ -1,41 +1,96 @@
 function exploration(vrep, id, h) 
     timestep = .05;
+    
+    [res, init_robot_position] = vrep.simxGetObjectPosition(id, h.ref, -1, vrep.simx_opmode_buffer);
+    vrchk(vrep, res, true);
+    [res, init_robot_angle] = vrep.simxGetObjectOrientation(id, h.ref, -1, vrep.simx_opmode_buffer);
+    vrchk(vrep, res, true);
+        
     global round_parameter round_decimals
     initsize = 1;
     round_parameter = 0.1;
     round_decimals = -log10(round_parameter);
     global map map_origin map_size
     map = zeros(initsize, initsize);
-    map_size = [initsize, initsize];
-    map_origin
+    map_size = size(map);
+    map_origin = init_robot_position([1;2])'; 
+
+    target_pos = [-1, -1];
+    rotate_angle = pi;
+    rotation_next_pos = 0;
     i = 0;
+    fsm = 'rotate';
     %% Start the exploration. 
-    while i < 1000
+    while true
         tic  
-        
+        [X, Y] = meshgrid(-5:.25:5, -5.5:.25:2.5); % Values selected for the area the robot will explore for this demo. 
+        X = reshape(X, 1, []); % Make a vector of the matrix X. 
+        Y = reshape(Y, 1, []);
         if vrep.simxGetConnectionId(id) == -1
             error('Lost connection to remote API.');
         end
     
         % Get the position and the orientation of the ROBOT. 
         % youbotPos : [x, y, z]
-        [res, youbotPos] = vrep.simxGetObjectPosition(id, h.ref, -1, vrep.simx_opmode_buffer);
+        % Get the position and the orientation of the robot.
+        [res, robot_position] = vrep.simxGetObjectPosition(id, h.ref, -1, vrep.simx_opmode_buffer);
         vrchk(vrep, res, true);
-        % J'imagine les 3 angles d'Euler .. 
-        %[res, youbotEuler] = vrep.simxGetObjectOrientation(id, h.ref, -1, vrep.simx_opmode_buffer);
+        [res, robot_angle] = vrep.simxGetObjectOrientation(id, h.ref, -1, vrep.simx_opmode_buffer);
         vrchk(vrep, res, true);
+        robot_position = robot_position([1;2])'; % discard z
+        robot_angle = robot_angle(3); % discard not needed angle
+        
+ 
         
         % pts : 3 x 684 avec [[x ,y ,z]] -> tous les points vu 
         % contacts: une matrice 1x 684  -> 0 si pas de wall et 1 si wall
         [pts, contacts] = youbot_hokuyo(vrep, h, vrep.simx_opmode_buffer);
-        updateMap(pts, contacts)        
+        pts = pts(1:2,:); % discard z 
+        updateMap(h, pts, contacts, robot_position, robot_angle);
+        displayMap();
+        
         
         i = i +1;
-        % /!\ Velocity backward!!!
-        h = youbot_drive(vrep, h, 0, 0, 0);
-        if youbotPos(2) > 0
-            break;
+        
+            
+        if strcmp(fsm, 'rotate')
+            % /!\ Velocity backward!!!
+            rotateRightVel = angdiff(rotate_angle, robot_angle);
+            
+            % When the rotation is done (with a sufficiently high precision), move on to the next state. 
+            if abs(angdiff(rotate_angle, robot_angle)) < .1 / 180 * pi && abs(angdiff(prevOrientation, robot_angle)) < .01 / 180 * pi
+                fsm = 'createTarget';
+                break;
+            end
+            prevOrientation = robot_angle;
+            h = youbot_drive(vrep, h, 0, 0, rotateRightVel);
+            
+        elseif strcmp(fsm, 'createTarget')
+            absolute_robot_position = round((1/round_parameter) * (robot_position - map_origin));
+            next_pos = [absolute_robot_position(1)+1, absolute_robot_position(2)];
+            %target_pos = astarMedhi
+            % next_pos
+            rotation_next_pos = getRotationNextPos(absolute_robot_position, next_pos);
+            fsm = 'rotateToNextPos';
+        elseif strcmp(fsm, 'rotateToNextPos')
+            % /!\ Velocity backward!!!
+            rotateRightVel = angdiff(rotation_next_pos, robot_angle)/6; % rotate slowwwwy
+            
+            % When the rotation is done (with a sufficiently high precision), move on to the next state. 
+            if abs(angdiff(rotation_next_pos, robot_angle)) < .1 / 180 * pi
+                fsm = 'moveToNextPos';
+            end
+            h = youbot_drive(vrep, h, 0, 0, rotateRightVel);
+        elseif strcmp(fsm, 'moveToNextPos')
+            forwBackVel = - (robot_position(1) + 0.1);
+            
+            if (robot_position(1) + 0.1 < .001) 
+                forwBackVel = 0;
+                break;
+                % next_pos in list. Si pas de next pos move to createTarget
+            end
         end
+        
         % Make sure that we do not go faster than the physics simulation (each iteration must take roughly 50 ms). 
         elapsed = toc;
         timeleft = timestep - elapsed;
@@ -43,92 +98,152 @@ function exploration(vrep, id, h)
             pause(min(timeleft, .01));
         end
     end
+    disp('Simplifying the map');
+    simplifyMap(2, absolute_robot_position);
+    simplifyMap(3, absolute_robot_position);
+    disp('Done');
+    displayMap();
 end
 %% Update map
- function updateMap(pts, contacts)
-    global map round_decimals
+function updateMap(h, pts, contacts, robot_position, robot_angle)
+    global map round_parameter map_origin
+    % rotate the points and translate them to be on the map
+    rotation_matrix = [cos(robot_angle), -sin(robot_angle);  sin(robot_angle), cos(robot_angle)];
     
- end
-  
-%     sizes = size(map);
-%     max_x_index = sizes(1);
-%     max_y_index = sizes(2);
-%     max_x = indexXToValue(max_x_index);
-%     min_x = indexXToValue(1);
-%     max_y = indexYToValue(max_y_index);
-%     min_y = indexYToValue(1);
-%     
-%     maxs = max(pts');
-%     new_max_x = maxs(1);
-%     new_max_y = maxs(2);
-%     mins = min(pts');
-%     new_min_x = mins(1);
-%     new_min_y = mins(2);
-%     max_x_extend = round(new_max_x, round_decimals);
-%     max_y_extend = round(new_max_y, round_decimals);
-%     min_x_extend = round(new_min_x, round_decimals);
-%     min_y_extend = round(new_min_y, round_decimals);
-%     map = updateSizeMap(max_x_extend, max_x, max_x_index, 1, 1);
-%     map = updateSizeMap(max_y_extend, max_y, max_y_index, 2, 1);
-%     map = updateSizeMap(min_x_extend, min_x, 1, 1, 2);
-%     map = updateSizeMap(min_y_extend, min_y, 1, 2, 2);
-%     size(map)
-%     
-%  end
-%  function [real_value] = indexXToValue(index)
-%     global map_translate_x round_parameter
-%     real_index = index - map_translate_x;
-%     real_value = real_index * round_parameter;
-%  end
-%  function [real_value] = indexYToValue(index)
-%     global map_translate_y round_parameter
-%     real_index = index - map_translate_y;
-%     real_value = real_index * round_parameter;
-%  end
-%  
-%  function [new_map] = updateSizeMap(extend, optimum, optimum_index, i, m)
-%     global map_size map round_parameter map_translate_x map_translate_y
-%     if m == 1
-%         if extend > optimum
-%           real_extend = extend - optimum;
-%           index_extend = real_extend / round_parameter;
-%           map_size(i) = round(map_size(i) + index_extend,0);
-%           new_map = zeros(map_size(1), map_size(2));
-%           if i == 1
-%              new_map(1:optimum_index,:) = map;
-%           else
-%             new_map(:,1:optimum_index) = map;
-%           end
-%         else 
-%             new_map = map;
-%         end
-%     else
-%         if extend < optimum
-%           real_extend = extend + optimum;
-%           if i == 1
-%               map_translate_x = abs(extend);
-%           else
-%               map_translate_y = abs(extend);
-%           end
-%           index_extend = abs(real_extend) / round_parameter;
-%           map_size(i) = round(map_size(i) + index_extend,0);
-%           optimum_index = round(optimum_index + index_extend,0);
-%           new_map = zeros(map_size(1), map_size(2));
-%           if i == 1
-%               try
-%                 new_map(optimum_index:end,:) = map;
-%               catch
-%                   a = 9;
-%               end
-%           else
-%               try
-%                 new_map(:,optimum_index:end) = map;
-%               catch
-%                   a = 9;
-%               end
-%           end
-%         else
-%             new_map = map;
-%         end
-%     end
-%  end
+    absolute_pts = bsxfun(@plus,  pts, robot_position);
+    absolute_index_pts = round((1/round_parameter) * bsxfun(@plus, rotation_matrix * pts, robot_position - map_origin));
+    
+    hokuyoPositions = [h.hokuyo1Pos(1), h.hokuyo1Pos(2); h.hokuyo2Pos(1), h.hokuyo2Pos(2)];
+    hokuyoPositions = round((1/round_parameter) * bsxfun(@plus, rotation_matrix * hokuyoPositions, robot_position - map_origin));
+    max_x = max(absolute_index_pts(1,:));
+    max_y = max(absolute_index_pts(2,:));
+    min_x = min(absolute_index_pts(1,:));
+    min_y = min(absolute_index_pts(2,:));
+    
+    max_x_extend = max(max_x - size(map, 1), 0);
+    max_y_extend = max(max_y - size(map, 2), 0);
+    min_x_extend = max(1 - min_x, 0);
+    min_y_extend = max(1 - min_y, 0);
+    
+    translation = [0; 0];
+    
+    if (max_x_extend > 0) || (max_y_extend > 0) ||(min_x_extend > 0) || (min_y_extend > 0)
+        [map, translation] = updateSizeMap(max_x_extend, max_y_extend, min_x_extend, min_y_extend);
+        absolute_index_pts = bsxfun(@plus, absolute_index_pts, translation);
+        hokuyoPositions = bsxfun(@plus, hokuyoPositions, translation);
+
+    end
+    % Create a 2D mesh of points, stored in the vectors X and Y. This will be used to display the area the robot can
+    % see, by selecting the points within this mesh that are within the visibility range. 
+    [X, Y] = find(map==0);
+    % Put 1 for the free space
+    in = inpolygon(X, Y,...
+                           [hokuyoPositions(1), absolute_index_pts(1, :), hokuyoPositions(3)],...
+                           [hokuyoPositions(2), absolute_index_pts(2, :), hokuyoPositions(4)]);
+    free_x = X(in);
+    free_y = Y(in);
+    free_index = [free_x'; free_y'];
+    for i=1:length(free_x)
+        if map(free_index(1, i), free_index(2, i)) == 0
+            map(free_index(1, i), free_index(2, i)) = 1;
+        end
+    end
+    % Put 2 to the positions of the obstacle
+    obstacles = find(contacts);
+    for i=1:length(obstacles)
+        map(absolute_index_pts(1, obstacles(i)), absolute_index_pts(2, obstacles(i))) = 2;
+    end
+end
+function [new_map, translation] = updateSizeMap(max_x_extend, max_y_extend, min_x_extend, min_y_extend)
+    global map_size map map_origin round_parameter
+    translation = [min_x_extend; min_y_extend];
+    prevous_map_size = map_size;
+    map_size = map_size + [max_x_extend + min_x_extend, max_y_extend + min_y_extend];
+    
+    new_map = zeros(map_size);
+    new_map((translation(1) + 1) : (translation(1) + prevous_map_size(1)), (translation(2) + 1) : (translation(2) + prevous_map_size(2))) = map;
+    
+    map_origin = map_origin - (translation * round_parameter);
+        
+end
+%% Plot map
+function displayMap()
+    global map
+    figure(1)
+    % plot obstacles
+    [obstacle_x, obstacle_y] = find(map == 2);
+    plot(obstacle_x, obstacle_y, 'xr')
+    hold on
+    % plot free_space
+    [free_space_x, free_space_y] = find(map == 1);
+    plot(free_space_x, free_space_y, 'xb')
+    % plot unreacheable state
+    [unreachable_x, unreachable_y] = find(map == 3);
+    plot(unreachable_x, unreachable_y, 'xb')
+    % plot unreacheable state
+    [robot_x, robot_y] = find(map == 5);
+    plot(robot_x, robot_y, 'oy')
+    drawnow;
+end
+%% Simplify map
+function simplifyMap(index, absolute_robot_position)
+    global map
+    map(absolute_robot_position(1), absolute_robot_position(2)) = 5;
+    for i = 1:size(map,1)
+        for j = 1:size(map,2)
+            if map(i,j) == index
+                if i-1 > 0 && j-1 > 0 && map(i-1,j-1) == 1
+                    map(i-1,j-1) = 4;
+                end
+                if j-1 > 0 && map(i,j-1) == 1
+                    map(i,j-1) = 4;
+                end
+                if i+1 < size(map,1) && j-1 > 0 && map(i+1,j-1) == 1
+                    map(i+1,j-1) = 4;
+                end
+                if i-1 > 0 && map(i-1,j) == 1
+                    map(i-1,j) = 4;
+                end
+                if i+1 < size(map,1) && map(i+1,j) == 1
+                    map(i+1,j) = 4;
+                end
+                if i-1 > 0 && j+1< size(map,2)&& map(i-1,j+1) == 1
+                    map(i-1,j+1) = 4;
+                end
+                if j+1< size(map,2)&& map(i,j+1) == 1
+                    map(i,j+1) = 4;
+                end
+                if i+1 < size(map,1) && j+1< size(map,2)&&  map(i+1,j+1) == 1
+                    map(i+1,j+1) = 4;
+                end
+            end
+        end
+    end
+    map(map == 4) = 3;
+end
+%% Move function
+function [rotation] = getRotationNextPos(robot_pos, next_pos)
+    if next_pos(1) == robot_pos(1) + 1
+        if next_pos(2) == robot_pos(2) + 1
+            rotation = -pi/4;
+        elseif next_pos(2) == robot_pos(2) 
+            rotation = -pi/2;
+        elseif next_pos(2) == robot_pos(2) - 1
+            rotation = -3*pi/4;
+        end
+    elseif next_pos(1) == robot_pos(2) 
+        if next_pos(2) == robot_pos(2) + 1
+            rotation = 0;
+        elseif next_pos(2) == robot_pos(2) - 1
+            rotation = pi;
+        end
+    elseif next_pos(1) == robot_pos(1) - 1
+        if next_pos(2) == robot_pos(2) + 1
+            rotation = pi/4;
+        elseif next_pos(2) == robot_pos(2) 
+            rotation = pi/2;
+        elseif next_pos(2) == robot_pos(2) - 1
+            rotation = 3*pi/4;
+        end
+    end
+end

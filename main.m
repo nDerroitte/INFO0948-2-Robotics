@@ -1,10 +1,9 @@
 function main()
     clc
-
     %% -------------------------- Init the project ---------------------------
     addpath(genpath('library/youbot/'))
     addpath(genpath('library/matlab/'))
-    run('startup_robot.m');
+    %run('startup_robot.m');
 
     %
     disp('Program started');
