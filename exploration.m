@@ -20,9 +20,9 @@ function exploration(vrep, id, h)
     prevOrientation = 0;
     rotation_next_pos = 0;
     i = 0;
-    fsm = 'createTarget';
+    fsm = 'rotate';
     %% Start the exploration.
-    while i<1000
+    while true
         tic
         if vrep.simxGetConnectionId(id) == -1
             error('Lost connection to remote API.');
@@ -45,6 +45,7 @@ function exploration(vrep, id, h)
         [pts, contacts] = youbot_hokuyo(vrep, h, vrep.simx_opmode_buffer);
         pts = pts(1:2,:); % discard z
         updateMap(h, pts, contacts, robot_position, robot_angle);
+        
         %displayMap();
 
 
@@ -66,7 +67,7 @@ function exploration(vrep, id, h)
             absolute_robot_position = round((1/round_parameter) * (robot_position - map_origin));
             disp('Simplifying the map');
             tmp_map = simplifyMap(2, absolute_robot_position);
-            tmp_map = simplifyMap(3, absolute_robot_position);
+            %tmp_map = simplifyMap(3, absolute_robot_position);
             disp('Done');
             next_pos1 = [absolute_robot_position(1)+1, absolute_robot_position(2)];
             next_pos2 = [absolute_robot_position(1)+2, absolute_robot_position(2)];
@@ -88,10 +89,11 @@ function exploration(vrep, id, h)
             next_pos18 = [absolute_robot_position(1)+18, absolute_robot_position(2)];
             next_pos19 = [absolute_robot_position(1)+19, absolute_robot_position(2)];
             %traj = {next_pos1, next_pos2, next_pos3, next_pos4, next_pos5, next_pos6, next_pos7, next_pos8, next_pos9, next_pos10, next_pos11, next_pos12, next_pos13, next_pos14, next_pos15, next_pos16, next_pos17, next_pos18, next_pos19};
-            traj = astar(map,absolute_robot_position);
+            traj = astar(tmp_map,absolute_robot_position');
             next_pos = traj{1};
             traj(1) = [];
-            rotation_next_pos = getRotationNextPos(absolute_robot_position, next_pos, robot_angle);
+            real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
+            rotation_next_pos = getRotationNextPos(absolute_robot_position, real_next_pos, robot_angle);
             fsm = 'rotateToNextPos';
         elseif strcmp(fsm, 'rotateToNextPos')
             % /!\ Velocity backward!!!
@@ -111,14 +113,14 @@ function exploration(vrep, id, h)
             dist_point = norm(a);
             forwBackVel =  -(proj/abs(proj))*norm(a)*0.7;
 
-            if (dist_point < .1 && previous_dist <.01)
+            if (dist_point < .3 && previous_dist <.3)
                 forwBackVel = 0;
                 if size(traj) >= 1
                     last_pos = next_pos;
                     next_pos = traj{1};
                     traj(1) = [];
-                    size(traj)
-                    rotation_next_pos = getRotationNextPos(last_pos, next_pos, robot_angle);
+                    real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
+                    rotation_next_pos = getRotationNextPos(last_pos, real_next_pos, robot_angle);
                     fsm = 'rotateToNextPos';
                 else
                     break;
@@ -223,28 +225,28 @@ function [new_map] =  simplifyMap(index, absolute_robot_position)
     for i = 1:size(map,1)
         for j = 1:size(map,2)
             if map(i,j) == index
-                if i-1 > 0 && j-1 > 0 && map(i-1,j-1) == 1
+                if i-1 > 0 && j-1 > 0 && (map(i-1,j-1) == 1 || map(i-1,j-1) == 0)
                     map(i-1,j-1) = 4;
                 end
-                if j-1 > 0 && map(i,j-1) == 1
+                if j-1 > 0 && (map(i,j-1) == 1 || map(i,j-1) == 0)
                     map(i,j-1) = 4;
                 end
-                if i+1 < size(map,1) && j-1 > 0 && map(i+1,j-1) == 1
+                if i+1 < size(map,1) && j-1 > 0 && (map(i+1,j-1) == 1 || map(i+1,j-1) == 0)
                     map(i+1,j-1) = 4;
                 end
-                if i-1 > 0 && map(i-1,j) == 1
+                if i-1 > 0 && (map(i-1,j) == 1 || map(i-1,j) == 0)
                     map(i-1,j) = 4;
                 end
-                if i+1 < size(map,1) && map(i+1,j) == 1
+                if i+1 < size(map,1) && (map(i+1,j) == 1 || map(i+1,j) == 0)
                     map(i+1,j) = 4;
                 end
-                if i-1 > 0 && j+1< size(map,2)&& map(i-1,j+1) == 1
+                if i-1 > 0 && j+1< size(map,2)&& (map(i-1,j+1) == 1 || map(i-1,j+1) == 0)
                     map(i-1,j+1) = 4;
                 end
-                if j+1< size(map,2)&& map(i,j+1) == 1
+                if j+1< size(map,2)&& (map(i,j+1) == 1 || map(i,j+1) == 0)
                     map(i,j+1) = 4;
                 end
-                if i+1 < size(map,1) && j+1< size(map,2)&&  map(i+1,j+1) == 1
+                if i+1 < size(map,1) && j+1< size(map,2)&&  (map(i+1,j+1) == 1 || map(i+1,j+1) == 0)
                     map(i+1,j+1) = 4;
                 end
             end
@@ -254,30 +256,32 @@ function [new_map] =  simplifyMap(index, absolute_robot_position)
     new_map = map;
 end
 %% Move function
-function [rotation] = getRotationNextPos(robot_pos, next_pos, robot_angle)
-    if next_pos(1) == robot_pos(1) + 1
-        if next_pos(2) == robot_pos(2) + 1
-            rotation = -pi/4;
-        elseif next_pos(2) == robot_pos(2)
-            rotation = -pi/2;
-        elseif next_pos(2) == robot_pos(2) - 1
-            rotation = -3*pi/4;
-        end
-    elseif next_pos(1) == robot_pos(2)
-        if next_pos(2) == robot_pos(2) + 1
-            rotation = 0;
-        elseif next_pos(2) == robot_pos(2)
-            rotation = robot_angle;
-        elseif next_pos(2) == robot_pos(2) - 1
-            rotation = pi;
-        end
-    elseif next_pos(1) == robot_pos(1) - 1
-        if next_pos(2) == robot_pos(2) + 1
-            rotation = pi/4;
-        elseif next_pos(2) == robot_pos(2)
-            rotation = pi/2;
-        elseif next_pos(2) == robot_pos(2) - 1
-            rotation = 3*pi/4;
-        end
-    end
+function [rotation] = getRotationNextPos(robot_position, real_next_pos, robot_angle)
+%     if next_pos(1) == robot_pos(1) + 1
+%         if next_pos(2) == robot_pos(2) + 1
+%             rotation = pi/4;
+%         elseif next_pos(2) == robot_pos(2)
+%             rotation = pi/2;
+%         elseif next_pos(2) == robot_pos(2) - 1
+%             rotation = 3*pi/4;
+%         end
+%     elseif next_pos(1) == robot_pos(2)
+%         if next_pos(2) == robot_pos(2) + 1
+%             rotation = 0;
+%         elseif next_pos(2) == robot_pos(2)
+%             rotation = robot_angle;
+%         elseif next_pos(2) == robot_pos(2) - 1
+%             rotation = pi;
+%         end
+%     elseif next_pos(1) == robot_pos(1) - 1
+%         if next_pos(2) == robot_pos(2) + 1
+%             rotation = -pi/4;
+%         elseif next_pos(2) == robot_pos(2)
+%             rotation = -pi/2;
+%         elseif next_pos(2) == robot_pos(2) - 1
+%             rotation = -3*pi/4;
+%         end
+%     end
+    a = [real_next_pos(1)-robot_position(1), real_next_pos(2)-robot_position(2)];
+    rotation = atan2(a(2), a(1));
 end
