@@ -109,7 +109,6 @@ function exploration(vrep, id, h)
                 else
                     break;
                 end
-                
             end
             h = youbot_drive(vrep, h, forwBackVel, 0, 0);
         end
