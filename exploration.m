@@ -20,7 +20,7 @@ function exploration(vrep, id, h)
     prevOrientation = 0;
     rotation_next_pos = 0;
     i = 0;
-    traj = {}
+    traj = {};
     fsm = 'rotate';
     %% Start the exploration.
     while true
@@ -47,7 +47,7 @@ function exploration(vrep, id, h)
         pts = pts(1:2,:); % discard z
         updateMap(h, pts, contacts, robot_position, robot_angle);
 
-        displayMap(traj,absolute_robot_position);
+
 
         i = i +1;
 
@@ -67,9 +67,10 @@ function exploration(vrep, id, h)
             absolute_robot_position = round((1/round_parameter) * (robot_position - map_origin));
             disp('Simplifying the map');
             tmp_map = map;
-            tmp_map = simplifyMap(2, absolute_robot_position, tmp_map);
-            tmp_map = simplifyMap(3, absolute_robot_position, tmp_map);
-            tmp_map = simplifyMap(3, absolute_robot_position, tmp_map);
+            tmp_map = simplifyMap(2, tmp_map);
+            tmp_map = simplifyMap(3, tmp_map);
+            tmp_map = simplifyMap(3, tmp_map);
+            tmp_map = simplifyMap(3, tmp_map);
             displayTmpMap(tmp_map);
             disp('Done');
 %             next_pos1 = [absolute_robot_position(1)-1, absolute_robot_position(2)];
@@ -95,22 +96,18 @@ function exploration(vrep, id, h)
             traj = astar(tmp_map,absolute_robot_position');
             traj = remove_points(traj,3);
 
+            % TODO verifier les conditions de boucles
+
             if size(traj) < 1
-              tmp_map = simplifyMap(2, absolute_robot_position, tmp_map);
-              tmp_map = simplifyMap(3, absolute_robot_position, tmp_map);
-              traj = astar(tmp_map,absolute_robot_position');
-              traj = remove_points(traj,4);
-              if size(traj) < 1
-                fsm ='finished';
-              end
+              fsm ='finished';
+            else
+              next_pos = traj{1}; %SI TRAJ TROP LONGUE FAIRE EN SORTE QU'IL LA COUPE ET DISCARD LA FIN
+              traj(1) = [];
+
+              real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
+              rotation_next_pos = getRotationNextPos(robot_position, real_next_pos, robot_angle);
+              fsm = 'rotateToNextPos';
             end
-
-            next_pos = traj{1}; %SI TRAJ TROP LONGUE FAIRE EN SORTE QU'IL LA COUPE ET DISCARD LA FIN
-            traj(1) = [];
-
-            real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
-            rotation_next_pos = getRotationNextPos(robot_position, real_next_pos, robot_angle);
-            fsm = 'rotateToNextPos';
         elseif strcmp(fsm, 'finished')
           disp('Simulation finished')
           break;
@@ -136,7 +133,7 @@ function exploration(vrep, id, h)
 
             forwBackVel =  -norm(a)*0.7;
 
-            if (dist_point < .35 && previous_dist <.35)
+            if (dist_point < .2 && previous_dist <.2)
                 forwBackVel = 0;
                 if size(traj) >= 1
                     last_pos = next_pos;
@@ -144,14 +141,24 @@ function exploration(vrep, id, h)
                     traj(1) = [];
                     real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
                     rotation_next_pos = getRotationNextPos(robot_position, real_next_pos, robot_angle);
+
+                    absolute_robot_position = round((1/round_parameter) * (robot_position - map_origin));
+                    displayMap(traj,absolute_robot_position);
+
                     fsm = 'rotateToNextPos';
                 else
                     disp('One iteration done! Moving on the next point (new astar)');
-                    fsm = 'createTarget';
+                    fsm = 'stop';
                 end
             end
             previous_dist = dist_point;
             h = youbot_drive(vrep, h, forwBackVel, 0, 0);
+
+        elseif strcmp(fsm, 'stop')
+          for i=1:5
+            h = youbot_drive(vrep, h, forwBackVel, 0, 0);
+          end
+          fsm = 'createTarget';
         end
 
         % Make sure that we do not go faster than the physics simulation (each iteration must take roughly 50 ms).
@@ -250,11 +257,12 @@ function displayMap(traj, robot_pos)
     global map
     new_map = map;
     tmp = {robot_pos};
-    write_path(new_map, tmp, 5)
+    new_map = write_path(new_map, tmp, 5);
     if size(traj) >= 1
-        write_path(new_map, traj, 8)
+        new_map = write_path(new_map, traj, 8);
     end
     figure(1)
+    subplot(1,2,1);
     % plot obstacles
     [obstacle_x, obstacle_y] = find(new_map == 2);
     plot(obstacle_x, obstacle_y, 'xr')
@@ -275,6 +283,7 @@ function displayMap(traj, robot_pos)
 end
 function displayTmpMap(tmp_map)
     figure(1)
+    subplot(1,2,2);
     % plot obstacles
     [obstacle_x, obstacle_y] = find(tmp_map == 2);
     plot(obstacle_x, obstacle_y, 'xr')

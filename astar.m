@@ -1,45 +1,108 @@
-function [path] = main(map,init_pos)
-  path = compute_path(map,init_pos);
+function [path] = main(map, init_pos)
+  path = compute_astar(map,init_pos);
+  %test();
 end
 
 function test()
   clc
-
   map = [2, 2, 2, 2, 2, 2, 2, 2, 2;
-         2, 1, 1, 1, 1, 1, 1, 1, 2;
-         2, 1, 1, 1, 1, 1, 0, 1, 2;
+         2, 1, 1, 1, 1, 1, 2, 0, 2;
+         2, 1, 1, 1, 1, 1, 2, 2, 2;
          2, 1, 1, 1, 1, 1, 1, 1, 2;
          2, 1, 1, 2, 2, 1, 1, 1, 2;
          2, 1, 2, 2, 2, 1, 1, 1, 2;
-         2, 1, 1, 1, 2, 1, 1, 1, 2;
-         2, 1, 1, 1, 2, 1, 1, 0, 2;
-         2, 1, 1, 2, 2, 1, 1, 1, 2;
+         2, 1, 1, 1, 2, 1, 2, 2, 2;
+         2, 1, 1, 1, 2, 1, 2, 0, 2;
+         2, 1, 1, 2, 2, 1, 2, 1, 2;
          2, 2, 2, 2, 2, 2, 2, 2, 2];
   disp(map)
-
   init_pos = [9,4];
-  path = compute_path(map,init_pos);
+
+  path = compute_astar(map,init_pos);
 
   map_with_path = write_path(map,path,8);
-  disp(map_with_path)
+  disp(map_with_path);
+end
+
+function [map] = fill_no_exp(map, pos)
+  map_size = size(map);
+  map(pos(1),pos(2)) = 3;
+
+  curr_pos =  [pos(1)+1, pos(2)];
+  if (curr_pos(1) <= map_size(1))
+    map(curr_pos(1),curr_pos(2)) = 3;
+  end
+
+  curr_pos =  [pos(1), pos(2)+1];
+  if (curr_pos(2) <= map_size(2))
+    map(curr_pos(1),curr_pos(2)) = 3;
+  end
+
+  curr_pos =  [pos(1)+1, pos(2)+1];
+  if (curr_pos(1) <= map_size(1)) && (curr_pos(2) <= map_size(2))
+    map(curr_pos(1),curr_pos(2)) = 3;
+  end
+
+  curr_pos =  [pos(1)-1, pos(2)];
+  if (curr_pos(1) >= 1)
+    map(curr_pos(1),curr_pos(2)) = 3;
+  end
+
+  curr_pos =  [pos(1), pos(2)-1];
+  if (curr_pos(2) >= 1)
+    map(curr_pos(1),curr_pos(2)) = 3;
+  end
+
+  curr_pos =  [pos(1)-1, pos(2)-1];
+  if (curr_pos(1) >= 1) && (curr_pos(2) >= 1)
+    map(curr_pos(1),curr_pos(2)) = 3;
+  end
+
+  curr_pos =  [pos(1)+1, pos(2)-1];
+  if (curr_pos(1) <= map_size(1)) && (curr_pos(2) >= 1)
+    map(curr_pos(1),curr_pos(2)) = 3;
+  end
+
+  curr_pos =  [pos(1)-1, pos(2)+1];
+  if (curr_pos(1) >= 1) && (curr_pos(2) <= map_size(2))
+    map(curr_pos(1),curr_pos(2)) = 3;
+  end
+end
+
+function [path] = compute_astar(map, init_pos)
+  path ={};
+  % search for the unexplored positions
+  exp_array =  get_exp_array(map);
+  while (size(path) < 1)
+    if (size(exp_array,1) < 1)
+      break;
+    end
+    [exp_pos, exp_array] = pop_next_exp(exp_array,init_pos);
+    path = compute_path(map,init_pos,exp_pos);
+    %map = fill_no_exp(map,exp_pos);
+  end
 end
 
 function [man_dist] = manhattan_distance(pos1, pos2)
   man_dist = abs(pos1(1:end,1)-pos2(1:end,1))+abs(pos1(1:end,2)-pos2(1:end,2));
 end
 
-function [exp_pos] = get_exp_pos(map, curr_pos)
+function [exp_pos,exp_array] = pop_next_exp(exp_array, init_pos)
+  [min_dist,index] = min(manhattan_distance(init_pos,exp_array));
+  exp_pos = exp_array(index,1:end);
+  exp_array([index],:) = [];
+end
+
+function [exp_array] = get_exp_array(map)
   [x,y] = find(map==0);
-  zero_pos = [x,y];
-  [min_dist,index] = min(manhattan_distance(curr_pos,zero_pos));
-  exp_pos = zero_pos(index,1:end);
+  exp_array = [x,y];
 end
 
 function [cost] = cost(curr_cost, succ_pos, exp_pos)
   cost = curr_cost + 1 + manhattan_distance(succ_pos,exp_pos);
 end
 
-function [valid_pos] = check_pos(map,pos)
+function [valid_pos] = check_pos(map, pos)
   valid_pos = (map(pos(1),pos(2)) ~= 2) && (map(pos(1),pos(2)) ~= 3);
 end
 
@@ -115,12 +178,9 @@ function [node, queue] = pop_next(queue)
   queue(i) = [];
 end
 
-function [path] = compute_path(map, init_pos)
+function [path] = compute_path(map, init_pos, exp_pos)
   % initial node of the tree search
   curr_node = {0,init_pos,{}};
-
-  % search for the closest unexplored position
-  exp_pos =  get_exp_pos(map,curr_node{2});
 
   % initialise the queue and the path
   path = {};
