@@ -66,34 +66,37 @@ function exploration(vrep, id, h)
         elseif strcmp(fsm, 'createTarget')
             absolute_robot_position = round((1/round_parameter) * (robot_position - map_origin));
             disp('Simplifying the map');
-            tmp_map = simplifyMap(2, absolute_robot_position);
-            %tmp_map = simplifyMap(3, absolute_robot_position);
+            tmp_map = map;
+            tmp_map = simplifyMap(2, absolute_robot_position, tmp_map);
+            tmp_map = simplifyMap(3, absolute_robot_position, tmp_map);
+            tmp_map = simplifyMap(3, absolute_robot_position, tmp_map);
+            displayTmpMap(tmp_map);
             disp('Done');
-            next_pos1 = [absolute_robot_position(1)+1, absolute_robot_position(2)];
-            next_pos2 = [absolute_robot_position(1)+2, absolute_robot_position(2)];
-            next_pos3 = [absolute_robot_position(1)+3, absolute_robot_position(2)];
-            next_pos4 = [absolute_robot_position(1)+4, absolute_robot_position(2)];
-            next_pos5 = [absolute_robot_position(1)+5, absolute_robot_position(2)];
-            next_pos6 = [absolute_robot_position(1)+6, absolute_robot_position(2)];
-            next_pos7 = [absolute_robot_position(1)+7, absolute_robot_position(2)];
-            next_pos8 = [absolute_robot_position(1)+8, absolute_robot_position(2)];
-            next_pos9 = [absolute_robot_position(1)+9, absolute_robot_position(2)];
-            next_pos10 = [absolute_robot_position(1)+10, absolute_robot_position(2)];
-            next_pos11 = [absolute_robot_position(1)+11, absolute_robot_position(2)];
-            next_pos12 = [absolute_robot_position(1)+12, absolute_robot_position(2)];
-            next_pos13 = [absolute_robot_position(1)+13, absolute_robot_position(2)];
-            next_pos14 = [absolute_robot_position(1)+14, absolute_robot_position(2)];
-            next_pos15 = [absolute_robot_position(1)+15, absolute_robot_position(2)];
-            next_pos16 = [absolute_robot_position(1)+16, absolute_robot_position(2)];
-            next_pos17 = [absolute_robot_position(1)+17, absolute_robot_position(2)];
-            next_pos18 = [absolute_robot_position(1)+18, absolute_robot_position(2)];
-            next_pos19 = [absolute_robot_position(1)+19, absolute_robot_position(2)];
+%             next_pos1 = [absolute_robot_position(1)-1, absolute_robot_position(2)];
+%             next_pos2 = [absolute_robot_position(1)-2, absolute_robot_position(2)];
+%             next_pos3 = [absolute_robot_position(1)-3, absolute_robot_position(2)];
+%             next_pos4 = [absolute_robot_position(1)-4, absolute_robot_position(2)];
+%             next_pos5 = [absolute_robot_position(1)-5, absolute_robot_position(2)];
+%             next_pos6 = [absolute_robot_position(1)-6, absolute_robot_position(2)];
+%             next_pos7 = [absolute_robot_position(1)-7, absolute_robot_position(2)];
+%             next_pos8 = [absolute_robot_position(1)-8, absolute_robot_position(2)];
+%             next_pos9 = [absolute_robot_position(1)-9, absolute_robot_position(2)];
+%             next_pos10 = [absolute_robot_position(1)-10, absolute_robot_position(2)];
+%             next_pos11 = [absolute_robot_position(1)-11, absolute_robot_position(2)];
+%             next_pos12 = [absolute_robot_position(1)-12, absolute_robot_position(2)];
+%             next_pos13 = [absolute_robot_position(1)-13, absolute_robot_position(2)];
+%             next_pos14 = [absolute_robot_position(1)-14, absolute_robot_position(2)];
+%             next_pos15 = [absolute_robot_position(1)-15, absolute_robot_position(2)];
+%             next_pos16 = [absolute_robot_position(1)-16, absolute_robot_position(2)];
+%             next_pos17 = [absolute_robot_position(1)-17, absolute_robot_position(2)];
+%             next_pos18 = [absolute_robot_position(1)-18, absolute_robot_position(2)];
+%             next_pos19 = [absolute_robot_position(1)-19, absolute_robot_position(2)];
             %traj = {next_pos1, next_pos2, next_pos3, next_pos4, next_pos5, next_pos6, next_pos7, next_pos8, next_pos9, next_pos10, next_pos11, next_pos12, next_pos13, next_pos14, next_pos15, next_pos16, next_pos17, next_pos18, next_pos19};
             traj = astar(tmp_map,absolute_robot_position');
-            next_pos = traj{1};
+            next_pos = traj{1}; %SI TRAJ TROP LONGUE FAIRE EN SORTE QU'IL LA COUPE ET DISCARD LA FIN
             traj(1) = [];
             real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
-            rotation_next_pos = getRotationNextPos(absolute_robot_position, real_next_pos, robot_angle);
+            rotation_next_pos = getRotationNextPos(robot_position, real_next_pos, robot_angle);
             fsm = 'rotateToNextPos';
         elseif strcmp(fsm, 'rotateToNextPos')
             % /!\ Velocity backward!!!
@@ -102,28 +105,32 @@ function exploration(vrep, id, h)
             % When the rotation is done (with a sufficiently high precision), move on to the next state.
             if abs(angdiff(rotation_next_pos, robot_angle)) < .1 / 180 * pi
                 fsm = 'moveToNextPos';
-                pause(1)
             end
             h = youbot_drive(vrep, h, 0, 0, rotateRightVel);
         elseif strcmp(fsm, 'moveToNextPos')
             real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
             a = [real_next_pos(1)-robot_position(1), real_next_pos(2)-robot_position(2)];
-
-            proj = a(1) * sin(robot_angle) + a(2) * cos(robot_angle);
+            if robot_angle > 0
+                proj = a(1) * sin(robot_angle) + a(2) * cos(pi/2 + robot_angle);
+            else
+                proj = a(1) * sin(robot_angle) + a(2) * cos(pi/2 - robot_angle);
+            end
             dist_point = norm(a);
-            forwBackVel =  -(proj/abs(proj))*norm(a)*0.7;
+  
+            forwBackVel =  -norm(a)*0.7;
 
-            if (dist_point < .3 && previous_dist <.3)
+            if (dist_point < .35 && previous_dist <.35)
                 forwBackVel = 0;
                 if size(traj) >= 1
                     last_pos = next_pos;
                     next_pos = traj{1};
                     traj(1) = [];
                     real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
-                    rotation_next_pos = getRotationNextPos(last_pos, real_next_pos, robot_angle);
+                    rotation_next_pos = getRotationNextPos(robot_position, real_next_pos, robot_angle);
                     fsm = 'rotateToNextPos';
                 else
-                    break;
+                    disp('One iteration done! Moving on the next point (new astar)');
+                    fsm = 'createTarget';
                 end
             end
             previous_dist = dist_point;
@@ -213,15 +220,24 @@ function displayMap()
     % plot unreacheable state
     [unreachable_x, unreachable_y] = find(map == 3);
     plot(unreachable_x, unreachable_y, 'xb')
+    drawnow;
+end
+function displayTmpMap(tmp_map)
+    figure(1)
+    % plot obstacles
+    [obstacle_x, obstacle_y] = find(tmp_map == 2);
+    plot(obstacle_x, obstacle_y, 'xr')
+    hold on
+    % plot free_space
+    [free_space_x, free_space_y] = find(tmp_map == 1);
+    plot(free_space_x, free_space_y, 'xb')
     % plot unreacheable state
-    [robot_x, robot_y] = find(map == 5);
-    plot(robot_x, robot_y, 'oy')
+    [unreachable_x, unreachable_y] = find(tmp_map == 3);
+    plot(unreachable_x, unreachable_y, 'xg')
     drawnow;
 end
 %% Simplify map
-function [new_map] =  simplifyMap(index, absolute_robot_position)
-    global map
-    map(absolute_robot_position(1), absolute_robot_position(2)) = 5;
+function [new_map] =  simplifyMap(index, absolute_robot_position, map)
     for i = 1:size(map,1)
         for j = 1:size(map,2)
             if map(i,j) == index
@@ -283,5 +299,5 @@ function [rotation] = getRotationNextPos(robot_position, real_next_pos, robot_an
 %         end
 %     end
     a = [real_next_pos(1)-robot_position(1), real_next_pos(2)-robot_position(2)];
-    rotation = atan2(a(2), a(1));
+    rotation = atan2(a(2), a(1))+ pi/2;
 end
