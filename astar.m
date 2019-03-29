@@ -20,7 +20,7 @@ function test()
   init_pos = [9,4];
   path = compute_path(map,init_pos);
 
-  map_with_path = write_path(map,path);
+  map_with_path = write_path(map,path,8);
   disp(map_with_path)
 end
 
@@ -142,8 +142,8 @@ function [path] = compute_path(map, init_pos)
   end
 end
 
-function [map] = write_path(map,path)
+function [map] = write_path(map,path,index)
   for i=1:max(size(path))
-    map(path{i}(1),path{i}(2)) = 8;
+    map(path{i}(1),path{i}(2)) = index;
   end
 end
