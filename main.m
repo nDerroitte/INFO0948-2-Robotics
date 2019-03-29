@@ -3,7 +3,7 @@ function main()
     %% -------------------------- Init the project ---------------------------
     addpath(genpath('library/youbot/'))
     addpath(genpath('library/matlab/'))
-    %run('startup_robot.m');
+    run('startup_robot.m');
 
     %
     disp('Program started');
@@ -27,15 +27,9 @@ function main()
     % Start simulation
     vrep.simxStartSimulation(id, vrep.simx_opmode_oneshot_wait);
 
-    % Retrieve all handles, and stream arm and wheel joints, the robot's pose, the Hokuyo, and the arm tip pose.
-    % The tip corresponds to the point between the two tongs of the gripper (for more details, see later or in the
-    % file focused/youbot_arm.m).
     % LES INFO DU ROBOT
     h = youbot_init(vrep, id);
     h = youbot_hokuyo_init(vrep, h);
-    % Let a few cycles pass to make sure there's a value waiting for us next time we try to get a joint angle or
-    % the robot pose with the simx_opmode_buffer option.
-    %pause(.2);
 
     %% Youbot constants
     % The time step
@@ -49,25 +43,24 @@ function main()
                       -1.5707963705063, 1.5707963705063 ];
 
     % Definition of the starting pose of the arm.
-    startingJoints = [0,0,0,0,0] ;%[0, 30.91 * pi / 180, 52.42 * pi / 180, 72.68 * pi / 180, 0];
-    
-    % Set the arm to its starting configuration. 
-    res = vrep.simxPauseCommunication(id, true); % We stop comunication to send all information at the same time
+    startingJoints = [0,0,0,0,0] ;
+
+    % Set the arm to its starting configuration.
+    % We stop comunication to send all information at the same time
+    res = vrep.simxPauseCommunication(id, true);
     vrchk(vrep, res);
-    
+
     for i = 1:5
         res = vrep.simxSetJointTargetPosition(id, h.armJoints(i), startingJoints(i), vrep.simx_opmode_oneshot);
         vrchk(vrep, res, true);
     end
     % Restart communication
-    res = vrep.simxPauseCommunication(id, false); 
+    res = vrep.simxPauseCommunication(id, false);
     vrchk(vrep, res);
     pause(2);
-    
+
     exploration(vrep, id, h)
 
-    
-    
     % End simulation
     vrep.simxStopSimulation(id, vrep.simx_opmode_oneshot_wait);
     vrep.simxFinish(-1);

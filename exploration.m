@@ -39,18 +39,13 @@ function exploration(vrep, id, h)
         robot_position = robot_position([1;2])'; % discard z
         robot_angle = robot_angle(3); % discard not needed angle
 
-
-
         % pts : 3 x 684 avec [[x ,y ,z]] -> tous les points vu
         % contacts: une matrice 1x 684  -> 0 si pas de wall et 1 si wall
         [pts, contacts] = youbot_hokuyo(vrep, h, vrep.simx_opmode_buffer);
         pts = pts(1:2,:); % discard z
         updateMap(h, pts, contacts, robot_position, robot_angle);
 
-
-
         i = i +1;
-
 
         if strcmp(fsm, 'rotate')
             % /!\ Velocity backward!!!
@@ -65,34 +60,12 @@ function exploration(vrep, id, h)
 
         elseif strcmp(fsm, 'createTarget')
             absolute_robot_position = round((1/round_parameter) * (robot_position - map_origin));
-            disp('Simplifying the map');
             tmp_map = map;
             tmp_map = simplifyMap(2, tmp_map);
             tmp_map = simplifyMap(3, tmp_map);
             tmp_map = simplifyMap(3, tmp_map);
             tmp_map = simplifyMap(3, tmp_map);
             displayTmpMap(tmp_map);
-            disp('Done');
-%             next_pos1 = [absolute_robot_position(1)-1, absolute_robot_position(2)];
-%             next_pos2 = [absolute_robot_position(1)-2, absolute_robot_position(2)];
-%             next_pos3 = [absolute_robot_position(1)-3, absolute_robot_position(2)];
-%             next_pos4 = [absolute_robot_position(1)-4, absolute_robot_position(2)];
-%             next_pos5 = [absolute_robot_position(1)-5, absolute_robot_position(2)];
-%             next_pos6 = [absolute_robot_position(1)-6, absolute_robot_position(2)];
-%             next_pos7 = [absolute_robot_position(1)-7, absolute_robot_position(2)];
-%             next_pos8 = [absolute_robot_position(1)-8, absolute_robot_position(2)];
-%             next_pos9 = [absolute_robot_position(1)-9, absolute_robot_position(2)];
-%             next_pos10 = [absolute_robot_position(1)-10, absolute_robot_position(2)];
-%             next_pos11 = [absolute_robot_position(1)-11, absolute_robot_position(2)];
-%             next_pos12 = [absolute_robot_position(1)-12, absolute_robot_position(2)];
-%             next_pos13 = [absolute_robot_position(1)-13, absolute_robot_position(2)];
-%             next_pos14 = [absolute_robot_position(1)-14, absolute_robot_position(2)];
-%             next_pos15 = [absolute_robot_position(1)-15, absolute_robot_position(2)];
-%             next_pos16 = [absolute_robot_position(1)-16, absolute_robot_position(2)];
-%             next_pos17 = [absolute_robot_position(1)-17, absolute_robot_position(2)];
-%             next_pos18 = [absolute_robot_position(1)-18, absolute_robot_position(2)];
-%             next_pos19 = [absolute_robot_position(1)-19, absolute_robot_position(2)];
-            %traj = {next_pos1, next_pos2, next_pos3, next_pos4, next_pos5, next_pos6, next_pos7, next_pos8, next_pos9, next_pos10, next_pos11, next_pos12, next_pos13, next_pos14, next_pos15, next_pos16, next_pos17, next_pos18, next_pos19};
             traj = astar(tmp_map,absolute_robot_position');
             traj = remove_points(traj,3);
 
@@ -101,7 +74,7 @@ function exploration(vrep, id, h)
             if size(traj) < 1
               fsm ='finished';
             else
-              next_pos = traj{1}; %SI TRAJ TROP LONGUE FAIRE EN SORTE QU'IL LA COUPE ET DISCARD LA FIN
+              next_pos = traj{1};
               traj(1) = [];
 
               real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
@@ -240,6 +213,7 @@ function updateMap(h, pts, contacts, robot_position, robot_angle)
         map(absolute_index_pts(1, obstacles(i)), absolute_index_pts(2, obstacles(i))) = 2;
     end
 end
+
 function [new_map, translation] = updateSizeMap(max_x_extend, max_y_extend, min_x_extend, min_y_extend)
     global map_size map map_origin round_parameter
     translation = [min_x_extend; min_y_extend];
@@ -252,6 +226,7 @@ function [new_map, translation] = updateSizeMap(max_x_extend, max_y_extend, min_
     map_origin = map_origin - (translation * round_parameter);
 
 end
+
 %% Plot map
 function displayMap(traj, robot_pos)
     global map
@@ -281,6 +256,7 @@ function displayMap(traj, robot_pos)
     plot(unreachable_x, unreachable_y, 'oy')
     drawnow;
 end
+
 function displayTmpMap(tmp_map)
     figure(1)
     subplot(1,2,2);
@@ -296,6 +272,7 @@ function displayTmpMap(tmp_map)
     plot(unreachable_x, unreachable_y, 'xg')
     drawnow;
 end
+
 %% Simplify map
 function [new_map] =  simplifyMap(index, map)
     for i = 1:size(map,1)
@@ -331,33 +308,9 @@ function [new_map] =  simplifyMap(index, map)
     map(map == 4) = 3;
     new_map = map;
 end
+
 %% Move function
 function [rotation] = getRotationNextPos(robot_position, real_next_pos, robot_angle)
-%     if next_pos(1) == robot_pos(1) + 1
-%         if next_pos(2) == robot_pos(2) + 1
-%             rotation = pi/4;
-%         elseif next_pos(2) == robot_pos(2)
-%             rotation = pi/2;
-%         elseif next_pos(2) == robot_pos(2) - 1
-%             rotation = 3*pi/4;
-%         end
-%     elseif next_pos(1) == robot_pos(2)
-%         if next_pos(2) == robot_pos(2) + 1
-%             rotation = 0;
-%         elseif next_pos(2) == robot_pos(2)
-%             rotation = robot_angle;
-%         elseif next_pos(2) == robot_pos(2) - 1
-%             rotation = pi;
-%         end
-%     elseif next_pos(1) == robot_pos(1) - 1
-%         if next_pos(2) == robot_pos(2) + 1
-%             rotation = -pi/4;
-%         elseif next_pos(2) == robot_pos(2)
-%             rotation = -pi/2;
-%         elseif next_pos(2) == robot_pos(2) - 1
-%             rotation = -3*pi/4;
-%         end
-%     end
     a = [real_next_pos(1)-robot_position(1), real_next_pos(2)-robot_position(2)];
     rotation = atan2(a(2), a(1))+ pi/2;
 end

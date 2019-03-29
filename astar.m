@@ -11,7 +11,7 @@ function test()
          2, 1, 1, 1, 1, 1, 1, 1, 2;
          2, 1, 1, 2, 2, 1, 1, 1, 2;
          2, 1, 2, 2, 2, 1, 1, 1, 2;
-         2, 1, 1, 1, 2, 1, 2, 2, 2;
+         2, 1, 1, 1, 2, 1, 1, 2, 2;
          2, 1, 1, 1, 2, 1, 2, 0, 2;
          2, 1, 1, 2, 2, 1, 2, 1, 2;
          2, 2, 2, 2, 2, 2, 2, 2, 2];
@@ -24,6 +24,7 @@ function test()
   disp(map_with_path);
 end
 
+% not used for now
 function [map] = fill_no_exp(map, pos)
   map_size = size(map);
   map(pos(1),pos(2)) = 3;
@@ -79,7 +80,6 @@ function [path] = compute_astar(map, init_pos)
     end
     [exp_pos, exp_array] = pop_next_exp(exp_array,init_pos);
     path = compute_path(map,init_pos,exp_pos);
-    %map = fill_no_exp(map,exp_pos);
   end
 end
 
