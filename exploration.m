@@ -20,6 +20,7 @@ function exploration(vrep, id, h)
     prevOrientation = 0;
     rotation_next_pos = 0;
     i = 0;
+    traj = {}
     fsm = 'rotate';
     %% Start the exploration.
     while true
@@ -245,19 +246,31 @@ function [new_map, translation] = updateSizeMap(max_x_extend, max_y_extend, min_
 
 end
 %% Plot map
-function displayMap()
+function displayMap(traj, robot_pos)
     global map
+    new_map = map;
+    tmp = {robot_pos};
+    write_path(new_map, tmp, 5)
+    if size(traj) >= 1
+        write_path(new_map, traj, 8)
+    end
     figure(1)
     % plot obstacles
-    [obstacle_x, obstacle_y] = find(map == 2);
+    [obstacle_x, obstacle_y] = find(new_map == 2);
     plot(obstacle_x, obstacle_y, 'xr')
     hold on
     % plot free_space
-    [free_space_x, free_space_y] = find(map == 1);
+    [free_space_x, free_space_y] = find(new_map == 1);
     plot(free_space_x, free_space_y, 'xb')
     % plot unreacheable state
-    [unreachable_x, unreachable_y] = find(map == 3);
+    [unreachable_x, unreachable_y] = find(new_map == 3);
     plot(unreachable_x, unreachable_y, 'xb')
+    % plot trajectory
+    [unreachable_x, unreachable_y] = find(new_map == 8);
+    plot(unreachable_x, unreachable_y, 'xm')
+    % plot unreacheable state
+    [unreachable_x, unreachable_y] = find(new_map == 5);
+    plot(unreachable_x, unreachable_y, 'oy')
     drawnow;
 end
 function displayTmpMap(tmp_map)
@@ -275,7 +288,7 @@ function displayTmpMap(tmp_map)
     drawnow;
 end
 %% Simplify map
-function [new_map] =  simplifyMap(index, absolute_robot_position, map)
+function [new_map] =  simplifyMap(index, map)
     for i = 1:size(map,1)
         for j = 1:size(map,2)
             if map(i,j) == index
