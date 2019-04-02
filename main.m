@@ -3,10 +3,8 @@ function main()
     %% -------------------------- Init the project ---------------------------
     addpath(genpath('library/youbot/'))
     addpath(genpath('library/matlab/'))
-    run('startup_robot.m');
+    %run('startup_robot.m');
 
-    %
-    disp('Program started');
     % Launching vrep
     vrep = remApi('remoteApi');
     % End the last simulation if not already done
@@ -27,12 +25,11 @@ function main()
     % Start simulation
     vrep.simxStartSimulation(id, vrep.simx_opmode_oneshot_wait);
 
-    % LES INFO DU ROBOT
+    % robot info
     h = youbot_init(vrep, id);
     h = youbot_hokuyo_init(vrep, h);
 
-    %% Youbot constants
-    % The time step
+    % the time step
     timestep = .05;
 
     % Minimum and maximum angles for all joints. Only useful to implement custom IK.
@@ -45,11 +42,11 @@ function main()
     % Definition of the starting pose of the arm.
     startingJoints = [0,0,0,0,0] ;
 
-    % Set the arm to its starting configuration.
-    % We stop comunication to send all information at the same time
+    % stop comunication to send all information at the same time
     res = vrep.simxPauseCommunication(id, true);
     vrchk(vrep, res);
 
+    % Set the arm to its starting configuration
     for i = 1:5
         res = vrep.simxSetJointTargetPosition(id, h.armJoints(i), startingJoints(i), vrep.simx_opmode_oneshot);
         vrchk(vrep, res, true);
@@ -57,9 +54,11 @@ function main()
     % Restart communication
     res = vrep.simxPauseCommunication(id, false);
     vrchk(vrep, res);
+    % ensure everything is setup
     pause(2);
 
-    exploration(vrep, id, h)
+    % launch the exploration of the map
+    map = exploration(vrep, id, h);
 
     % End simulation
     vrep.simxStopSimulation(id, vrep.simx_opmode_oneshot_wait);

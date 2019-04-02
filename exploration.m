@@ -1,27 +1,26 @@
-function exploration(vrep, id, h)
+function [map] = exploration(vrep, id, h)
+    % initialise the simulation
     timestep = .05;
-
-    [res, init_robot_position] = vrep.simxGetObjectPosition(id, h.ref, -1, vrep.simx_opmode_buffer);
+    [res, init_robot_pos] = vrep.simxGetObjectPosition(id, h.ref, -1, vrep.simx_opmode_buffer);
     vrchk(vrep, res, true);
-    [res, init_robot_angle] = vrep.simxGetObjectOrientation(id, h.ref, -1, vrep.simx_opmode_buffer);
+    [res, ~] = vrep.simxGetObjectOrientation(id, h.ref, -1, vrep.simx_opmode_buffer);
     vrchk(vrep, res, true);
 
-    global round_parameter round_decimals
-    initsize = 1;
-    round_parameter = 0.1;
-    round_decimals = -log10(round_parameter);
-    global map map_origin map_size
-    map = zeros(initsize, initsize);
+    % initialise the map
+    global map map_origin map_size round_parameter;
+    map = zeros(1, 1);
     map_size = size(map);
-    map_origin = init_robot_position([1;2])';
+    map_origin = init_robot_pos([1;2])';
+    round_parameter = 0.1;
 
-    rotate_angle = pi;
-    previous_dist = 0;
-    prevOrientation = 0;
-    rotation_next_pos = 0;
-    i = 0;
+    % impose margin between the robot trajectory and the obstacles
+    margin = 4;
     traj = {};
+
+    % set the initial rotation before exploration
+    rotate_angle = pi;
     fsm = 'rotate';
+
     %% Start the exploration.
     while true
         tic
@@ -29,112 +28,79 @@ function exploration(vrep, id, h)
             error('Lost connection to remote API.');
         end
 
-        % Get the position and the orientation of the ROBOT.
-        % youbotPos : [x, y, z]
         % Get the position and the orientation of the robot.
-        [res, robot_position] = vrep.simxGetObjectPosition(id, h.ref, -1, vrep.simx_opmode_buffer);
+        [res, robot_pos] = vrep.simxGetObjectPosition(id, h.ref, -1, vrep.simx_opmode_buffer);
         vrchk(vrep, res, true);
         [res, robot_angle] = vrep.simxGetObjectOrientation(id, h.ref, -1, vrep.simx_opmode_buffer);
         vrchk(vrep, res, true);
-        robot_position = robot_position([1;2])'; % discard z
-        robot_angle = robot_angle(3); % discard not needed angle
+        robot_pos = robot_pos([1;2])'; % discard z
+        % j'ai du rajouter le +1 mais yavait pas avant, bizarre...
+        abs_robot_pos = round((1/round_parameter) * (robot_pos - map_origin))+1;
+        robot_angle = robot_angle(3); % discard unneeded angles
 
-        % pts : 3 x 684 avec [[x ,y ,z]] -> tous les points vu
-        % contacts: une matrice 1x 684  -> 0 si pas de wall et 1 si wall
+        % read obstacle sensor data
         [pts, contacts] = youbot_hokuyo(vrep, h, vrep.simx_opmode_buffer);
         pts = pts(1:2,:); % discard z
-        updateMap(h, pts, contacts, robot_position, robot_angle);
 
-        i = i +1;
+        % update the map
+        updateMap(h, pts, contacts, robot_pos, robot_angle);
 
         if strcmp(fsm, 'rotate')
-            % /!\ Velocity backward!!!
-            rotateRightVel = angdiff(rotate_angle, robot_angle);
+            rot_vel = angdiff(rotate_angle, robot_angle);
 
-            % When the rotation is done (with a sufficiently high precision), move on to the next state.
-            if abs(angdiff(rotate_angle, robot_angle)) < .1 / 180 * pi && abs(angdiff(prevOrientation, robot_angle)) < .01 / 180 * pi
+            if abs(angdiff(rotate_angle, robot_angle)) < .1 / 180 * pi
                 fsm = 'createTarget';
             end
-            prevOrientation = robot_angle;
-            h = youbot_drive(vrep, h, 0, 0, rotateRightVel);
+
+            h = youbot_drive(vrep, h, 0, 0, rot_vel);
 
         elseif strcmp(fsm, 'createTarget')
-            absolute_robot_position = round((1/round_parameter) * (robot_position - map_origin));
-            tmp_map = map;
-            tmp_map = simplifyMap(2, tmp_map);
-            tmp_map = simplifyMap(3, tmp_map);
-            tmp_map = simplifyMap(3, tmp_map);
-            tmp_map = simplifyMap(3, tmp_map);
-            displayTmpMap(tmp_map);
-            traj = astar(tmp_map,absolute_robot_position');
-            traj = remove_points(traj,3);
+            % compute the trajectory
+            traj = computePath(map,abs_robot_pos',margin);
 
-            % TODO verifier les conditions de boucles
-
-            if size(traj) < 1
+            % if the trajectory is empty, the exploration is finished
+            if size(traj,2) < 1
               fsm ='finished';
             else
-              next_pos = traj{1};
+              abs_next_pos = traj{1};
               traj(1) = [];
-
-              real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
-              rotation_next_pos = getRotationNextPos(robot_position, real_next_pos, robot_angle);
-              fsm = 'rotateToNextPos';
+              fsm = 'moveToTarget';
             end
-        elseif strcmp(fsm, 'finished')
-          disp('Simulation finished')
-          break;
 
-        elseif strcmp(fsm, 'rotateToNextPos')
-            % /!\ Velocity backward!!!
-            rotateRightVel = angdiff(rotation_next_pos, robot_angle); % rotate slowwwwy
+        elseif strcmp(fsm, 'moveToTarget')
+            % next position in the coordinates of the simulation
+            next_pos = abs2sim(abs_next_pos, map_origin, round_parameter);
 
-            % When the rotation is done (with a sufficiently high precision), move on to the next state.
-            if abs(angdiff(rotation_next_pos, robot_angle)) < .1 / 180 * pi
-                fsm = 'moveToNextPos';
-            end
-            h = youbot_drive(vrep, h, 0, 0, rotateRightVel);
-        elseif strcmp(fsm, 'moveToNextPos')
-            real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
-            a = [real_next_pos(1)-robot_position(1), real_next_pos(2)-robot_position(2)];
-            if robot_angle > 0
-                proj = a(1) * sin(robot_angle) + a(2) * cos(pi/2 + robot_angle);
+            % check if close enough to the position
+            if (size(traj,2) >= 1 && continuePath(map, traj, margin))
+              if (norm(next_pos'-robot_pos) < .1)
+                  abs_next_pos = traj{1};
+                  traj(1) = [];
+                  next_pos = abs2sim(abs_next_pos, map_origin, round_parameter);
+              end
+              % compute and apply the velocities
+              [x_vel, y_vel, rot_vel] = velocity(next_pos, robot_pos, robot_angle);
+              h = youbot_drive(vrep, h, x_vel, y_vel, rot_vel);
             else
-                proj = a(1) * sin(robot_angle) + a(2) * cos(pi/2 - robot_angle);
+              h = youbot_drive(vrep, h, 0, 0, 0);
+              fsm = 'stop';
             end
-            dist_point = norm(a);
-
-            forwBackVel =  -norm(a)*0.7;
-
-            if (dist_point < .2 && previous_dist <.2)
-                forwBackVel = 0;
-                if size(traj) >= 1
-                    last_pos = next_pos;
-                    next_pos = traj{1};
-                    traj(1) = [];
-                    real_next_pos = bsxfun(@plus, round_parameter*next_pos, + map_origin');
-                    rotation_next_pos = getRotationNextPos(robot_position, real_next_pos, robot_angle);
-
-                    absolute_robot_position = round((1/round_parameter) * (robot_position - map_origin));
-                    displayMap(traj,absolute_robot_position);
-
-                    fsm = 'rotateToNextPos';
-                else
-                    disp('One iteration done! Moving on the next point (new astar)');
-                    fsm = 'stop';
-                end
-            end
-            previous_dist = dist_point;
-            h = youbot_drive(vrep, h, forwBackVel, 0, 0);
 
         elseif strcmp(fsm, 'stop')
-          for i=1:5
-            h = youbot_drive(vrep, h, forwBackVel, 0, 0);
+          for i=1:20
+            h = youbot_drive(vrep, h, 0, 0, 0);
           end
           fsm = 'createTarget';
+
+        elseif strcmp(fsm, 'finished')
+          disp('Exploration finished!')
+          break;
         end
 
-        % Make sure that we do not go faster than the physics simulation (each iteration must take roughly 50 ms).
+        % display the updated map
+        displayMap(map,traj,abs_robot_pos);
+
+        % each iteration must take roughly 50 ms
         elapsed = toc;
         timeleft = timestep - elapsed;
         if timeleft > 0
@@ -143,37 +109,20 @@ function exploration(vrep, id, h)
     end
 end
 
-function [new_path] = remove_points(path,step)
-  size_path = max(size(path));
-  if (size_path > 20)
-    path = path(1:20);
-    size_path = max(size(path));
-  end
-
-  new_path = {};
-  for i=1:size_path
-    if (mod(i,step) == 0)
-      new_path{end+1} = path{i};
-    end
-  end
-end
-
-function [map] = write_path(map,path,index)
-  for i=1:max(size(path))
-    map(path{i}(1),path{i}(2)) = index;
-  end
+function [sim_position] = abs2sim(abs_position, map_origin, round_parameter)
+  sim_position = bsxfun(@plus, round_parameter*abs_position, + map_origin');
 end
 
 %% Update map
-function updateMap(h, pts, contacts, robot_position, robot_angle)
+function updateMap(h, pts, contacts, robot_pos, robot_angle)
     global map round_parameter map_origin
     % rotate the points and translate them to be on the map
     rotation_matrix = [cos(robot_angle), -sin(robot_angle);  sin(robot_angle), cos(robot_angle)];
 
-    absolute_index_pts = round((1/round_parameter) * bsxfun(@plus, rotation_matrix * pts, robot_position - map_origin));
+    absolute_index_pts = round((1/round_parameter) * bsxfun(@plus, rotation_matrix * pts, robot_pos - map_origin));
 
     hokuyoPositions = [h.hokuyo1Pos(1), h.hokuyo1Pos(2); h.hokuyo2Pos(1), h.hokuyo2Pos(2)];
-    hokuyoPositions = round((1/round_parameter) * bsxfun(@plus, rotation_matrix * hokuyoPositions, robot_position - map_origin));
+    hokuyoPositions = round((1/round_parameter) * bsxfun(@plus, rotation_matrix * hokuyoPositions, robot_pos - map_origin));
     max_x = max(absolute_index_pts(1,:));
     max_y = max(absolute_index_pts(2,:));
     min_x = min(absolute_index_pts(1,:));
@@ -183,8 +132,6 @@ function updateMap(h, pts, contacts, robot_position, robot_angle)
     max_y_extend = max(max_y - size(map, 2), 0);
     min_x_extend = max(1 - min_x, 0);
     min_y_extend = max(1 - min_y, 0);
-
-    translation = [0; 0];
 
     if (max_x_extend > 0) || (max_y_extend > 0) ||(min_x_extend > 0) || (min_y_extend > 0)
         [map, translation] = updateSizeMap(max_x_extend, max_y_extend, min_x_extend, min_y_extend);
@@ -224,93 +171,140 @@ function [new_map, translation] = updateSizeMap(max_x_extend, max_y_extend, min_
     new_map((translation(1) + 1) : (translation(1) + prevous_map_size(1)), (translation(2) + 1) : (translation(2) + prevous_map_size(2))) = map;
 
     map_origin = map_origin - (translation * round_parameter);
-
 end
 
 %% Plot map
-function displayMap(traj, robot_pos)
-    global map
-    new_map = map;
-    tmp = {robot_pos};
-    new_map = write_path(new_map, tmp, 5);
-    if size(traj) >= 1
-        new_map = write_path(new_map, traj, 8);
-    end
-    figure(1)
-    subplot(1,2,1);
+function displayMap(map, traj, robot_pos)
+    % clear previous plot
+    clf;
+
     % plot obstacles
-    [obstacle_x, obstacle_y] = find(new_map == 2);
-    plot(obstacle_x, obstacle_y, 'xr')
-    hold on
-    % plot free_space
-    [free_space_x, free_space_y] = find(new_map == 1);
-    plot(free_space_x, free_space_y, 'xb')
-    % plot unreacheable state
-    [unreachable_x, unreachable_y] = find(new_map == 3);
-    plot(unreachable_x, unreachable_y, 'xb')
+    [obstacle_x, obstacle_y] = find(map == 2);
+    plot(obstacle_x, obstacle_y, 'xr');
+    hold on;
+
+    % plot free spaces
+    [free_space_x, free_space_y] = find(map == 1);
+    plot(free_space_x, free_space_y, 'xb');
+
     % plot trajectory
-    [unreachable_x, unreachable_y] = find(new_map == 8);
-    plot(unreachable_x, unreachable_y, 'xm')
-    % plot unreacheable state
-    [unreachable_x, unreachable_y] = find(new_map == 5);
-    plot(unreachable_x, unreachable_y, 'oy')
-    drawnow;
-end
-
-function displayTmpMap(tmp_map)
-    figure(1)
-    subplot(1,2,2);
-    % plot obstacles
-    [obstacle_x, obstacle_y] = find(tmp_map == 2);
-    plot(obstacle_x, obstacle_y, 'xr')
-    hold on
-    % plot free_space
-    [free_space_x, free_space_y] = find(tmp_map == 1);
-    plot(free_space_x, free_space_y, 'xb')
-    % plot unreacheable state
-    [unreachable_x, unreachable_y] = find(tmp_map == 3);
-    plot(unreachable_x, unreachable_y, 'xg')
-    drawnow;
-end
-
-%% Simplify map
-function [new_map] =  simplifyMap(index, map)
-    for i = 1:size(map,1)
-        for j = 1:size(map,2)
-            if map(i,j) == index
-                if i-1 > 0 && j-1 > 0 && (map(i-1,j-1) == 1 || map(i-1,j-1) == 0)
-                    map(i-1,j-1) = 4;
-                end
-                if j-1 > 0 && (map(i,j-1) == 1 || map(i,j-1) == 0)
-                    map(i,j-1) = 4;
-                end
-                if i+1 < size(map,1) && j-1 > 0 && (map(i+1,j-1) == 1 || map(i+1,j-1) == 0)
-                    map(i+1,j-1) = 4;
-                end
-                if i-1 > 0 && (map(i-1,j) == 1 || map(i-1,j) == 0)
-                    map(i-1,j) = 4;
-                end
-                if i+1 < size(map,1) && (map(i+1,j) == 1 || map(i+1,j) == 0)
-                    map(i+1,j) = 4;
-                end
-                if i-1 > 0 && j+1< size(map,2)&& (map(i-1,j+1) == 1 || map(i-1,j+1) == 0)
-                    map(i-1,j+1) = 4;
-                end
-                if j+1< size(map,2)&& (map(i,j+1) == 1 || map(i,j+1) == 0)
-                    map(i,j+1) = 4;
-                end
-                if i+1 < size(map,1) && j+1< size(map,2)&&  (map(i+1,j+1) == 1 || map(i+1,j+1) == 0)
-                    map(i+1,j+1) = 4;
-                end
-            end
-        end
+    for i=1:size(traj,2)
+      plot(traj{i}(1), traj{i}(2), 'xm');
     end
-    map(map == 4) = 3;
-    new_map = map;
+
+    % plot robot
+    plot(robot_pos(1), robot_pos(2), 'oy');
+
+    drawnow;
 end
 
-%% Move function
-function [rotation] = getRotationNextPos(robot_position, real_next_pos, robot_angle)
-    a = [real_next_pos(1)-robot_position(1), real_next_pos(2)-robot_position(2)];
-    rotation = atan2(a(2), a(1))+ pi/2;
+%% astar
+function [path] = computePath(map, init_pos, margin)
+  path ={};
+  % search for the unexplored positions
+  exp_array =  getExpArray(map);
+  while (size(path,2) < 1)
+    if (size(exp_array,1) < 1)
+      break;
+    end
+    [exp_pos, exp_array] = popNextExp(exp_array,init_pos);
+    % check if the unexplored position is valid
+    if (checkExp(map,exp_pos,margin))
+      % compute the path using A*
+      path = astar(map,init_pos,exp_pos,margin);
+    end
+  end
+end
+
+function [exp_pos,exp_array] = popNextExp(exp_array, init_pos)
+  [~,index] = min(manhattanDistance(init_pos,exp_array));
+  exp_pos = exp_array(index,1:end);
+  exp_array([index],:) = [];
+end
+
+% TODO il faut une meilleure strategie pour choisir le prochain point
+function [exp_array] = getExpArray(map)
+  [x,y] = find(map==0);
+  exp_array = [x,y];
+end
+
+function [validity] = checkExp(map, exp_pos, margin)
+  validity = 0;
+  map_size = size(map);
+
+  if ~checkMargin(map, exp_pos, margin, 2)
+    return;
+  end
+
+  neighbor =  [exp_pos(1)+1, exp_pos(2)];
+  if (neighbor(1) <= map_size(1))
+    if (map(neighbor(1),neighbor(2)) == 1)
+      validity = 1;
+      return;
+    end
+  end
+
+  neighbor =  [exp_pos(1), exp_pos(2)+1];
+  if (neighbor(2) <= map_size(2))
+    if (map(neighbor(1),neighbor(2)) == 1)
+      validity = 1;
+      return;
+    end
+  end
+
+  neighbor =  [exp_pos(1)+1, exp_pos(2)+1];
+  if (neighbor(1) <= map_size(1)) && (neighbor(2) <= map_size(2))
+    if (map(neighbor(1),neighbor(2)) == 1)
+      validity = 1;
+      return;
+    end
+  end
+
+  neighbor =  [exp_pos(1)-1, exp_pos(2)];
+  if (neighbor(1) >= 1)
+    if (map(neighbor(1),neighbor(2)) == 1)
+      validity = 1;
+      return;
+    end
+  end
+
+  neighbor =  [exp_pos(1), exp_pos(2)-1];
+  if (neighbor(2) >= 1)
+    if (map(neighbor(1),neighbor(2)) == 1)
+      validity = 1;
+      return;
+    end
+  end
+
+  neighbor =  [exp_pos(1)-1, exp_pos(2)-1];
+  if (neighbor(1) >= 1) && (neighbor(2) >= 1)
+    if (map(neighbor(1),neighbor(2)) == 1)
+      validity = 1;
+      return;
+    end
+  end
+
+  neighbor =  [exp_pos(1)+1, exp_pos(2)-1];
+  if (neighbor(1) <= map_size(1)) && (neighbor(2) >= 1)
+    if (map(neighbor(1),neighbor(2)) == 1)
+      validity = 1;
+      return;
+    end
+  end
+
+  neighbor =  [exp_pos(1)-1, exp_pos(2)+1];
+  if (neighbor(1) >= 1) && (neighbor(2) <= map_size(2))
+    if (map(neighbor(1),neighbor(2)) == 1)
+      validity = 1;
+      return;
+    end
+  end
+end
+
+function [validity] = continuePath(map, path, margin)
+  if ((size(path,2) <= 10) && (map(path{end}(1),path{end}(2)) ~= 0))
+    validity = 0;
+  else
+    validity = checkMargin(map,path{1},margin,2);
+  end
 end
