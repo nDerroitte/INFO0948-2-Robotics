@@ -1,4 +1,5 @@
 function [path] = astar(map, init_pos, dest_pos, margin)
+  tic
   % initial node of the tree search
   curr_node = {0,init_pos,{}};
 
@@ -20,6 +21,8 @@ function [path] = astar(map, init_pos, dest_pos, margin)
     % add the next nodes to explore
     [map,queue] = addSuccessors(map,queue,curr_node,dest_pos,margin);
   end
+  disp('total astar')
+  toc
 end
 
 function [node, queue] = popNext(queue)
@@ -35,8 +38,23 @@ function [node, queue] = popNext(queue)
   queue(index) = [];
 end
 
-function [cost] = cost(curr_cost, succ_pos, dest_pos)
-  cost = curr_cost + 1 + manhattanDistance(succ_pos,dest_pos);
+function [diag_move] = isDiagMove(curr_pos, next_pos)
+  diff = curr_pos - next_pos;
+  if ((diff(1) == 0) || (diff(2) == 0))
+    diag_move = 0;
+  else
+    diag_move = 1;
+  end
+end
+
+function [cost] = cost(curr_cost, curr_pos, succ_pos, dest_pos)
+  if (isDiagMove(curr_pos, succ_pos))
+    % TODO fucking diag..
+    cost = curr_cost + 50 + manhattanDistance(succ_pos,dest_pos);
+    %cost = curr_cost + sqrt(2) + manhattanDistance(succ_pos,dest_pos);
+  else
+    cost = curr_cost + 1 + manhattanDistance(succ_pos,dest_pos);
+  end
 end
 
 function [validity] = checkPos(map, pos, margin)
@@ -50,10 +68,9 @@ end
 function [queue] = appendNode(queue, curr_node, succ_pos, dest_pos)
   path = curr_node{3};
   path{end+1} = succ_pos;
-  queue{end+1} = {cost(curr_node{1}, succ_pos, dest_pos), succ_pos, path};
+  queue{end+1} = {cost(curr_node{1}, curr_node{2}, succ_pos, dest_pos), succ_pos, path};
 end
 
-% TODO ajuster poids des deplacements diagonaux
 function [map,queue] = addSuccessors(map, queue, curr_node, dest_pos, margin)
   map_size = size(map);
   curr_pos = curr_node{2};

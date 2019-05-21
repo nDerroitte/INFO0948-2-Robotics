@@ -1,9 +1,8 @@
 function [x_vel,y_vel,rot_vel] = velocity(position, robot_position, robot_angle)
   % parameters of the velocity
-  % TODO tune the parameters
-  x_factor = 2.5;
-  y_factor = 2.5;
-  theta_factor = 0.5;
+  x_factor = 2.1;
+  y_factor = 2.1;
+  theta_factor = 0.4;
 
   % absolute translation velocity
   abs_vel = position' - robot_position;
