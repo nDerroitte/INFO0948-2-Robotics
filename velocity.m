@@ -1,9 +1,4 @@
 function [x_vel,y_vel,rot_vel] = velocity(position, robot_position, robot_angle)
-  % parameters of the velocity
-  x_factor = 2.1;
-  y_factor = 2.1;
-  theta_factor = 0.4;
-
   % absolute translation velocity
   abs_vel = position' - robot_position;
   % compute the rotation matrix
@@ -23,8 +18,21 @@ function [x_vel,y_vel,rot_vel] = velocity(position, robot_position, robot_angle)
   % relative rotation velocity
   rot_vel = angdiff(abs_rot_vel, robot_angle);
 
-  % apply the factors
-  x_vel = -x_factor*robot_vel(1);
-  y_vel = y_factor*robot_vel(2);
-  rot_vel = theta_factor*rot_vel;
+  % apply factors to the velocities
+  if (abs(rot_vel) > pi/3)
+    % if the angle is too big, mainly rotate
+    x_vel = -0.25*robot_vel(1);
+    y_vel = 0.25*robot_vel(2);
+    rot_vel = 0.6*rot_vel;
+  elseif (abs(rot_vel) > pi/6)
+    % if the angle is medium, rotate more
+    x_vel = -1*robot_vel(1);
+    y_vel = 1*robot_vel(2);
+    rot_vel = 0.5*rot_vel;
+  else
+    % apply the normal factors
+    x_vel = -1.5*robot_vel(1);
+    y_vel = 1.5*robot_vel(2);
+    rot_vel = 0.4*rot_vel;
+  end
 end

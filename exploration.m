@@ -1,5 +1,3 @@
-% TODO B1, C1 & C2, D1 & D2
-
 function [map] = exploration(vrep, id, h)
     % initialize the simulation
     timestep = .05;
@@ -78,7 +76,7 @@ function [map] = exploration(vrep, id, h)
         % moving to the target point
         elseif strcmp(fsm, 'moveToTarget')
             % check if continue the current path
-            if (size(traj,2) >= 1 && continuePath(map, abs_next_pos, traj, margin))
+            if (continuePath(map, abs_next_pos, traj, margin))
               % check if close enough to the next position
               if (skipNextPos(map, abs_robot_pos, robot_pos, next_pos, margin))
                   abs_next_pos = traj{1};
@@ -87,12 +85,7 @@ function [map] = exploration(vrep, id, h)
               end
               % compute and apply the velocities
               [x_vel, y_vel, rot_vel] = velocity(next_pos, robot_pos, robot_angle);
-              % if the angle is too big, mainly rotate
-              if (abs(rot_vel) > pi/6)
-                h = youbot_drive(vrep, h, 0.1*x_vel, 0.1*y_vel, 0.5*rot_vel);
-              else
-                h = youbot_drive(vrep, h, x_vel, y_vel, rot_vel);
-              end
+              h = youbot_drive(vrep, h, x_vel, y_vel, rot_vel);
             else
               h = youbot_drive(vrep, h, 0, 0, 0);
               fsm = 'stop';
@@ -112,7 +105,7 @@ function [map] = exploration(vrep, id, h)
         end
 
         % display the updated map
-        displayMap(map,traj,abs_robot_pos);
+        displayMap(map ,traj, abs_robot_pos, {}, 0);
 
         % each iteration must take roughly 50 ms
         elapsed = toc;
@@ -180,7 +173,8 @@ function updateMap(h, pts, contacts, robot_pos, robot_angle)
     end
 end
 
-function [new_map, translation] = updateSizeMap(max_x_extend, max_y_extend, min_x_extend, min_y_extend)
+function [new_map, translation] = updateSizeMap(max_x_extend, max_y_extend,...
+                                                min_x_extend, min_y_extend)
     global map_size map map_origin round_parameter
 
     translation = [min_x_extend; min_y_extend];
@@ -193,31 +187,6 @@ function [new_map, translation] = updateSizeMap(max_x_extend, max_y_extend, min_
 
     map_origin = map_origin - (translation * round_parameter);
 end
-
-%% Plot map
-function displayMap(map, traj, robot_pos)
-    % clear previous plot
-    clf;
-    % plot obstacles
-    [obstacle_x, obstacle_y] = find(map == 2);
-    plot(obstacle_x, obstacle_y, 'xr');
-    hold on;
-    % plot free spaces
-    [free_space_x, free_space_y] = find(map == 1);
-    plot(free_space_x, free_space_y, 'xb');
-    % plot trajectory
-    for i=1:size(traj,2)
-      plot(traj{i}(1), traj{i}(2), 'xm');
-    end
-    % plot robot
-    plot(robot_pos(1), robot_pos(2), 'xg');
-    % display the plot
-    drawnow;
-end
-
-% TODO ya des zones qui sont toujours pas explorées..
-% TODO deplacements diag dans astar et astar lent -> toolbox ?
-% TODO gerer quand ce gros con est bloqué
 
 %% astar
 function [path] = computePath(map, init_pos, margin)
@@ -232,7 +201,9 @@ function [path] = computePath(map, init_pos, margin)
     % check if the unexplored position is valid
     if (checkExp(map,exp_pos,margin))
       % compute the path using A*
-      path = astar(map,init_pos,exp_pos,margin);
+      tic
+      path = astar(map, init_pos, exp_pos, margin, 1);
+      toc
     end
   end
 end
@@ -253,12 +224,17 @@ end
 
 % check that the exploration position is valid
 function [validity] = checkExp(map, exp_pos, margin)
-  % check the margin around the position
+  % reduce margin on exp. position to ensure a better exploration
+  % this is allowed because relax is enabled in the A*
+  if (margin > 0)
+    margin = margin - 1;
+  end
+  % check the margin around the exp. position
   if ~checkMargin(map, exp_pos, margin, 2)
     validity = 0;
     return;
   else
-    % check that at least one neighbor of the position is reachable
+    % check that at least one neighbor of the exp. position is reachable
     validity = ~checkMargin(map, exp_pos, 1, 1);
   end
 end
@@ -278,12 +254,14 @@ end
 
 % determine to continue or not the path
 function [cont_path] = continuePath(map, abs_next_pos, path, margin)
+  % path is empty
+  if (~(size(path, 2) >= 1))
+    cont_path = 0;
   % check if the path is too short and the last position has been explored
-  if ((size(path,2) <= 10) && (map(path{end}(1),path{end}(2)) ~= 0))
+  elseif ((size(path,2) <= 5) && (map(path{end}(1),path{end}(2)) ~= 0))
     cont_path = 0;
   else
     % check margin around the next position
-    %cont_path = checkMargin(map,path{1},margin,2);
     cont_path = checkMargin(map, abs_next_pos, margin, 2);
   end
 end

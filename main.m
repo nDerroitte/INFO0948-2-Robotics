@@ -11,12 +11,13 @@ function main()
     vrep.simxFinish(-1);
     % Creating the id for vrep
     id = vrep.simxStart('127.0.0.1', 19997, true, true, 2000, 5);
-
+    % Connection failed
     if id < 0
         disp('Failed connecting to remote API server. Exiting.');
         vrep.delete();
         return;
     end
+    % Connection succeeded
     fprintf('Connection %d to remote API server open.\n', id);
 
     % Make sure we close the connection whenever the script is interrupted.
@@ -48,7 +49,8 @@ function main()
 
     % Set the arm to its starting configuration
     for i = 1:5
-        res = vrep.simxSetJointTargetPosition(id, h.armJoints(i), startingJoints(i), vrep.simx_opmode_oneshot);
+        res = vrep.simxSetJointTargetPosition(id, h.armJoints(i),...
+                                  startingJoints(i), vrep.simx_opmode_oneshot);
         vrchk(vrep, res, true);
     end
     % Restart communication
@@ -59,6 +61,12 @@ function main()
 
     % launch the exploration of the map
     map = exploration(vrep, id, h);
+    % save the map to a file
+    save('map', 'map');
+    % find the centers in the map
+    centers = findCircles(map, 4, 1.5);
+    % display the map with the circles
+    displayMap(map, {}, [], centers, 4);
 
     % End simulation
     vrep.simxStopSimulation(id, vrep.simx_opmode_oneshot_wait);

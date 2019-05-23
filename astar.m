@@ -1,5 +1,4 @@
-function [path] = astar(map, init_pos, dest_pos, margin)
-  tic
+function [path] = astar(map, init_pos, dest_pos, margin, relax)
   % initial node of the tree search
   curr_node = {0,init_pos,{}};
 
@@ -13,16 +12,20 @@ function [path] = astar(map, init_pos, dest_pos, margin)
     [curr_node, queue] = popNext(queue);
     curr_pos = curr_node{2};
 
+    % check if close enough to the target position
+    if (relax == 1) && (norm(curr_pos - dest_pos) <= margin)
+        path = curr_node{3};
+        break;
+    end
     % check if the targeted position has been reached
     if (curr_pos == dest_pos)
       path = curr_node{3};
+      break;
     end
 
     % add the next nodes to explore
     [map,queue] = addSuccessors(map,queue,curr_node,dest_pos,margin);
   end
-  disp('total astar')
-  toc
 end
 
 function [node, queue] = popNext(queue)
