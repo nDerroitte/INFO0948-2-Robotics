@@ -13,11 +13,8 @@ function [map, map_origin, abs_init_pos] = exploration(vrep, id, h)
     map_origin = init_robot_pos([1;2])';
     round_parameter = 0.1;
 
-    % compute abs_init_pos
-    abs_init_pos = sim2abs(map_origin, init_robot_pos([1;2])', round_parameter);
-
     % impose margin between the robot trajectory and the obstacles
-    margin = 3;
+    margin = 3; %4;
     traj = {};
 
     % set the initial rotation before exploration
@@ -104,6 +101,8 @@ function [map, map_origin, abs_init_pos] = exploration(vrep, id, h)
         % the exploration is finished
         elseif strcmp(fsm, 'finished')
           disp('Exploration finished!')
+          % compute abs_init_pos
+          abs_init_pos = sim2abs(map_origin, init_robot_pos([1;2])', round_parameter);
           break;
         end
 

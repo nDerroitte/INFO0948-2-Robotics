@@ -70,7 +70,7 @@ function main()
     % display the map with the circles
     displayMap(map, {}, [], centers, 4);
     % grap the objects
-    [c_tables, c_baskets, a_baskets] = getGrabPos(map, centers, init_pos, 9, 4);
+    [c_tables, c_baskets, a_baskets] = getGrabPos(map, centers, init_pos, 10, 3);
     grabObject(vrep, id, h, map, map_origin, c_tables, c_baskets, a_baskets);
 
     % End simulation

@@ -24,7 +24,7 @@ function [res, dir] = object_centred(color)
     max_y = max(y);
     min_y = min(y);
     centre = (max_y + min_y)/2;
-    
+
     if abs(real_centre - centre) <= 5
         res = 1;
         dir = 0;
@@ -34,8 +34,8 @@ function [res, dir] = object_centred(color)
         dir = -1;
     else
         dir = 1;
-    end        
-    
+    end
+
     res = 0;
     return;
 end

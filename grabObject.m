@@ -54,7 +54,11 @@ function [sucess] = grabObject(vrep, id, h, map, map_origin, tables_pos_in, bask
     % Postion variables
     CENTRE_TABLE1 = tables_pos_in{1};
     CENTRE_TABLE2 = tables_pos_in{2};
-    table_pos = [CENTRE_TABLE1(1) + 9, CENTRE_TABLE1(2)];
+    table_pos_init = [CENTRE_TABLE1(1) + 9, CENTRE_TABLE1(2)];
+    table_pos = [CENTRE_TABLE1(1), CENTRE_TABLE1(2)];
+    % table 2
+    %table_pos_init = [CENTRE_TABLE2(1) + 9, CENTRE_TABLE2(2)];
+    %table_pos = [CENTRE_TABLE2(1), CENTRE_TABLE2(2)];
     positions_basket(1, :) = access_pos_in{1};
     positions_basket(2, :) = access_pos_in{2};
     positions_basket(3, :) = access_pos_in{3};
@@ -64,7 +68,12 @@ function [sucess] = grabObject(vrep, id, h, map, map_origin, tables_pos_in, bask
     positions__centre_basket(2, :) = baskets_pos_in{2};
     positions__centre_basket(3, :) = baskets_pos_in{3};
     positions__centre_basket(4, :) = baskets_pos_in{4};
-    positions__centre_basket(5, :) = baskets_pos_in{5}; 
+    positions__centre_basket(5, :) = baskets_pos_in{5};
+    % centres for the display
+    centres = tables_pos_in;
+    for i=1:size(baskets_pos_in, 2)
+      centres{end+1} = baskets_pos_in{i};
+    end
 
     %% Start the simulation.
     while true
@@ -89,7 +98,7 @@ function [sucess] = grabObject(vrep, id, h, map, map_origin, tables_pos_in, bask
         % Go to the table
         if strcmp(fsm, 'pathToTable')
             % Compute the path using astar
-            path = getPath(map, abs_robot_pos', table_pos, margin);
+            path = getPath(map, abs_robot_pos', table_pos_init, margin);
             % Path is empty
             if size(path,2) < 1
               disp('Table location too close too wall. try to put it further.')
@@ -106,7 +115,7 @@ function [sucess] = grabObject(vrep, id, h, map, map_origin, tables_pos_in, bask
             fsm = 'move';
         % Move with a smaller accuray
         elseif strcmp(fsm, 'Normal move')
-            accuracy = 0.01; % to increase if you have a good computer
+            accuracy = 0.1; % to increase if you have a good computer
             fsm = 'move';
         % State responsible of the move
         elseif strcmp(fsm, 'move')
@@ -145,7 +154,7 @@ function [sucess] = grabObject(vrep, id, h, map, map_origin, tables_pos_in, bask
             % Computing all 16 positions
             while current_angle <= (2*pi)
                 % getting the next position
-                [x, y] = rotateAroundCenter2(radius, current_angle, CENTRE_TABLE1);
+                [x, y] = rotateAroundCenter2(radius, current_angle, table_pos);
                 % Update indexes
                 current_angle = current_angle + angle_step_rotation;
                 positions_around_table(i, :) = round([x, y]);
@@ -179,7 +188,7 @@ function [sucess] = grabObject(vrep, id, h, map, map_origin, tables_pos_in, bask
             end
         % Focus the camera on the centre of the table
         elseif strcmp(fsm, 'reFocusCamera')
-            vect = abs_robot_pos'- CENTRE_TABLE1 ;
+            vect = abs_robot_pos'- table_pos;
             % Compute the angle
             angleRotation = atan2(vect(2), vect(1));
             fsm = 'rotate';
@@ -215,7 +224,7 @@ function [sucess] = grabObject(vrep, id, h, map, map_origin, tables_pos_in, bask
         elseif strcmp(fsm , 'analyseImage')
             % Stop the robot
             h = youbot_drive(vrep, h, 0, 0, 0);
-            pause(1);
+            % pause(1);
             % Taking a picture
             captureImage(vrep, id, h)
             disp('Doing image analysis.')
@@ -242,7 +251,7 @@ function [sucess] = grabObject(vrep, id, h, map, map_origin, tables_pos_in, bask
         elseif strcmp(fsm, 'distanceWithObject')
             % Stop the robot
             h = youbot_drive(vrep, h, 0, 0, 0);
-            pause(1);
+            % pause(1);
             % Captue an image
             captureImage(vrep, id, h)
             % Checking the distance using vision
@@ -268,16 +277,31 @@ function [sucess] = grabObject(vrep, id, h, map, map_origin, tables_pos_in, bask
             % Initialising the move
             abs_next_pos = path{1};
             path(1) = [];
-            goingBasket = 1;
+            goingBasket = 0;
             disp('Moving toward initial position');
             fsm = 'Normal move';
         % Little movement along y axis
         elseif strcmp(fsm, 'smallMovementY')
-            h = youbot_drive(vrep, h, 0, dir, 0);
-            fsm = 'analyseImage';
+            res_centred = 0;
+            while res_centred ==0
+              captureImage(vrep, id, h)
+              [res_centred, dir] = object_centred(color);
+              h = youbot_drive(vrep, h, 0, 0.0125*dir, 0);
+            end
+            h = youbot_drive(vrep, h, 0, 0, 0);
+
+            fsm = 'distanceWithObject';
+
         % Little movement around x axis
         elseif strcmp(fsm, 'smallMovementX')
-            h = youbot_drive(vrep, h, dir, 0, 0);
+            res = 0;
+            while res == 0
+              captureImage(vrep, id, h)
+              % Checking the distance using vision
+              [res, dir] = good_distance_object(color);
+              h = youbot_drive(vrep, h, 0.05*dir, 0, 0);
+            end
+            h = youbot_drive(vrep, h, 0, 0, 0);
             fsm = 'distanceWithObject';
         % Prerecorded sequence to catch the object
         elseif strcmp(fsm, 'takingObject')
@@ -410,7 +434,7 @@ function [sucess] = grabObject(vrep, id, h, map, map_origin, tables_pos_in, bask
           break;
         end
         % display the updated map
-        displayMap(map,path,abs_robot_pos, {}, 0);
+        displayMap(map,path,abs_robot_pos, centres, 4);
     end
 
 end
