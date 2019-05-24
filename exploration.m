@@ -1,4 +1,4 @@
-function [map] = exploration(vrep, id, h)
+function [map, map_origin, abs_init_pos] = exploration(vrep, id, h)
     % initialize the simulation
     timestep = .05;
     [res, init_robot_pos] = vrep.simxGetObjectPosition(id, h.ref, -1, vrep.simx_opmode_buffer);
@@ -12,6 +12,9 @@ function [map] = exploration(vrep, id, h)
     map_size = size(map);
     map_origin = init_robot_pos([1;2])';
     round_parameter = 0.1;
+
+    % compute abs_init_pos
+    abs_init_pos = sim2abs(map_origin, init_robot_pos([1;2])', round_parameter);
 
     % impose margin between the robot trajectory and the obstacles
     margin = 3;
@@ -120,6 +123,10 @@ function [sim_position] = abs2sim(abs_position, map_origin, round_parameter)
   sim_position = bsxfun(@plus, round_parameter*abs_position, + map_origin');
 end
 
+function [abs_pos] = sim2abs(map_origin, pos_sim, round_parameter)
+    abs_pos = round((1/round_parameter) * (pos_sim - map_origin))+1;
+end
+
 %% Update map
 function updateMap(h, pts, contacts, robot_pos, robot_angle)
     global map round_parameter map_origin
@@ -201,9 +208,7 @@ function [path] = computePath(map, init_pos, margin)
     % check if the unexplored position is valid
     if (checkExp(map,exp_pos,margin))
       % compute the path using A*
-      tic
       path = astar(map, init_pos, exp_pos, margin, 1);
-      toc
     end
   end
 end

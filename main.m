@@ -60,13 +60,18 @@ function main()
     pause(2);
 
     % launch the exploration of the map
-    map = exploration(vrep, id, h);
+    [map, map_origin, init_pos] = exploration(vrep, id, h);
     % save the map to a file
-    save('map', 'map');
+    save map.mat map map_origin init_pos;
+    % load the map
+    load map.mat
     % find the centers in the map
     centers = findCircles(map, 4, 1.5);
     % display the map with the circles
     displayMap(map, {}, [], centers, 4);
+    % grap the objects
+    [c_tables, c_baskets, a_baskets] = getGrabPos(map, centers, init_pos, 9, 4);
+    grabObject(vrep, id, h, map, map_origin, c_tables, c_baskets, a_baskets);
 
     % End simulation
     vrep.simxStopSimulation(id, vrep.simx_opmode_oneshot_wait);

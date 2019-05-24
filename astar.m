@@ -29,7 +29,7 @@ function [path] = astar(map, init_pos, dest_pos, margin, relax)
 end
 
 function [node, queue] = popNext(queue)
-  min_cost = 999999;
+  min_cost = Inf;
   index = 1;
   for i=1:size(queue,2)
     if (queue{i}{1} <= min_cost)
@@ -52,7 +52,6 @@ end
 
 function [cost] = cost(curr_cost, curr_pos, succ_pos, dest_pos)
   if (isDiagMove(curr_pos, succ_pos))
-    % TODO fucking diag..
     cost = curr_cost + 50 + manhattanDistance(succ_pos,dest_pos);
     %cost = curr_cost + sqrt(2) + manhattanDistance(succ_pos,dest_pos);
   else
